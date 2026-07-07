@@ -1,0 +1,33 @@
+name: Monthly Policy Scan
+
+on:
+  schedule:
+    # 14:00 UTC on the 1st = 8:00 AM Mountain Daylight / 7:00 AM Mountain Standard
+    - cron: "0 14 1 * *"
+  workflow_dispatch: {}   # allows manual "Run workflow" button for testing
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scan
+        working-directory: scanner
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          VAULT_SPREADSHEET_ID: ${{ vars.VAULT_SPREADSHEET_ID }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          EMAIL_TO: ${{ vars.EMAIL_TO }}
+        run: python scan.py

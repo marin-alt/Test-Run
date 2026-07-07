@@ -1,0 +1,63 @@
+# TPP source registry. Add/remove sources here — no code changes needed.
+# domain: used for Tavily domain-restricted search
+# label:  human-readable name used in logs and email
+# tier:   1 = always scan, 2 = scan, 3 = scan (lower weight in ranking notes)
+
+objectives:
+  - "1. Support Children & Families"
+  - "2. Build the Middle Class"
+  - "3. Strengthen Public Education"
+  - "4. Ensure Individuals Can Meet Their Basic Needs"
+  - "5. Fix Inefficient & Inequitable Systems"
+  - "6. Promote Mental & Physical Health"
+  - "7. Prevent Abuse, Violence, & Exploitation"
+
+# Topic queries run against each source group (combined with domain filters)
+queries:
+  - "Utah policy recommendations children families childcare"
+  - "Utah policy report education funding teachers"
+  - "Utah housing affordability policy recommendations"
+  - "Utah workforce wages policy report"
+  - "Utah behavioral health mental health policy recommendations"
+  - "Utah criminal justice reform policy report"
+  - "Utah domestic violence trafficking policy recommendations"
+  - "state policy innovation legislation model bill 2026"
+
+sources:
+  # Tier 1 — Utah government & data
+  - {domain: justice.utah.gov,        label: "CCJJ",                       tier: 1}
+  - {domain: dcfs.utah.gov,           label: "DCFS",                       tier: 1}
+  - {domain: dhhs.utah.gov,           label: "Utah DHHS",                  tier: 1}
+  - {domain: ibis.utah.gov,           label: "Utah IBIS",                  tier: 1}
+  - {domain: schools.utah.gov,        label: "USBE",                       tier: 1}
+  - {domain: le.utah.gov,             label: "Utah Legislature",           tier: 1}
+  # Tier 1 — Utah research institutes
+  - {domain: gardner.utah.edu,        label: "Gardner Policy Institute",   tier: 1}
+  - {domain: utahfoundation.org,      label: "Utah Foundation",            tier: 1}
+  - {domain: usu.edu,                 label: "UWLP (USU)",                 tier: 1}
+  - {domain: healthpolicyproject.org, label: "Utah Health Policy Project", tier: 1}
+  # Tier 2 — Utah advocacy & civil society
+  - {domain: utahchildren.org,        label: "Voices for Utah Children",   tier: 2}
+  - {domain: sutherlandinstitute.org, label: "Sutherland Institute",       tier: 2}
+  - {domain: libertas.institute,      label: "Libertas Institute",         tier: 2}
+  - {domain: udvc.org,                label: "UDVC",                       tier: 2}
+  - {domain: ywcautah.org,            label: "YWCA Utah",                  tier: 2}
+  - {domain: disabilitylawcenter.org, label: "Disability Law Center",      tier: 2}
+  - {domain: envisionutah.org,        label: "Envision Utah",              tier: 2}
+  - {domain: uepc.utah.edu,           label: "Utah Education Policy Ctr",  tier: 2}
+  # Tier 3 — national think tanks & model-policy sources
+  - {domain: brennancenter.org,       label: "Brennan Center",             tier: 3}
+  - {domain: epi.org,                 label: "Economic Policy Institute",  tier: 3}
+  - {domain: iwpr.org,                label: "IWPR",                       tier: 3}
+  - {domain: ncsl.org,                label: "NCSL",                       tier: 3}
+  - {domain: cbpp.org,                label: "CBPP",                       tier: 3}
+  - {domain: urban.org,               label: "Urban Institute",            tier: 3}
+  - {domain: nashp.org,               label: "NASHP",                      tier: 3}
+  - {domain: clasp.org,               label: "CLASP",                      tier: 3}
+  - {domain: nwlc.org,                label: "NWLC",                       tier: 3}
+  - {domain: bellpolicy.org,          label: "Bell Policy Center",         tier: 3}
+  # Tier 3 — Utah news
+  - {domain: utahnewsdispatch.com,    label: "Utah News Dispatch",         tier: 3}
+  - {domain: sltrib.com,              label: "Salt Lake Tribune",          tier: 3}
+  - {domain: deseret.com,             label: "Deseret News",               tier: 3}
+  - {domain: ksl.com,                 label: "KSL",                        tier: 3}

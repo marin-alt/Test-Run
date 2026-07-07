@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.env
+service-account*.json
+.DS_Store
