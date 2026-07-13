@@ -12,16 +12,21 @@ objectives:
   - "6. Promote Mental & Physical Health"
   - "7. Prevent Abuse, Violence, & Exploitation"
 
-# Topic queries run against each source group (combined with domain filters)
+# Topic queries run against each source group (combined with domain filters).
+# objectives: which of the 7 objectives the query serves. An empty list means
+# the query is relevant to every objective. A focused scan (e.g. "objective 3
+# only") runs only the queries matching its selected objectives.
 queries:
-  - "Utah policy recommendations children families childcare"
-  - "Utah policy report education funding teachers"
-  - "Utah housing affordability policy recommendations"
-  - "Utah workforce wages policy report"
-  - "Utah behavioral health mental health policy recommendations"
-  - "Utah criminal justice reform policy report"
-  - "Utah domestic violence trafficking policy recommendations"
-  - "state policy innovation legislation model bill 2026"
+  - {q: "Utah policy recommendations children families childcare",                 objectives: [1]}
+  - {q: "Utah workforce wages middle class policy report",                         objectives: [2]}
+  - {q: "Utah housing affordability policy recommendations",                       objectives: [2, 4]}
+  - {q: "Utah policy report education funding teachers schools",                   objectives: [3]}
+  - {q: "Utah food insecurity SNAP basic needs policy recommendations",            objectives: [4]}
+  - {q: "Utah criminal justice reform policy report",                              objectives: [5, 7]}
+  - {q: "Utah occupational licensing regulatory reform government efficiency",     objectives: [5]}
+  - {q: "Utah behavioral health mental health policy recommendations",             objectives: [6]}
+  - {q: "Utah domestic violence trafficking child abuse policy recommendations",   objectives: [7]}
+  - {q: "state policy innovation legislation model bill 2026",                     objectives: []}
 
 sources:
   # Tier 1 — Utah government & data

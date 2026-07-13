@@ -1,10 +1,21 @@
-name: Monthly Policy Scan
+name: Policy Scan
 
 on:
   schedule:
-    # 14:00 UTC on the 1st = 8:00 AM Mountain Daylight / 7:00 AM Mountain Standard
+    # 14:00 UTC on the 1st = 8:00 AM Mountain Daylight / 7:00 AM Mountain Standard.
+    # Scheduled runs use whatever the "Scan Settings" tab of the Policy Vault says.
     - cron: "0 14 1 * *"
-  workflow_dispatch: {}   # allows manual "Run workflow" button for testing
+  workflow_dispatch:
+    # The "Run workflow" button. Both boxes optional — leave them blank to run
+    # with the Scan Settings tab as-is; fill them in for a one-off focused scan
+    # without changing the standing settings.
+    inputs:
+      objectives:
+        description: 'Objective numbers for this run only, e.g. "3" or "1,3,6"'
+        required: false
+      topics:
+        description: 'Extra search topics for this run only, comma-separated'
+        required: false
 
 jobs:
   scan:
@@ -26,8 +37,7 @@ jobs:
           TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           VAULT_SPREADSHEET_ID: ${{ vars.VAULT_SPREADSHEET_ID }}
-          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
-          EMAIL_TO: ${{ vars.EMAIL_TO }}
+          SCAN_OBJECTIVES: ${{ inputs.objectives }}
+          SCAN_TOPICS: ${{ inputs.topics }}
         run: python scan.py
