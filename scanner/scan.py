@@ -78,7 +78,12 @@ def ask_claude(model: str, prompt: str, max_tokens: int = 8000) -> str:
         model=model, max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
-    return resp.content[0].text
+    # Models that emit a thinking block put it first, so take the text block,
+    # not content[0] (which may be a ThinkingBlock with no .text).
+    for block in resp.content:
+        if getattr(block, "type", None) == "text":
+            return block.text
+    return ""
 
 
 def ask_claude_json(model: str, prompt: str, max_tokens: int = 8000):
