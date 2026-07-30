@@ -374,6 +374,8 @@ def main() -> int:
     ap.add_argument("--max-ideas", type=int, help="cap on staged rows")
     args = ap.parse_args()
 
+    log("code build: thinking-block-fix (2026-07)")
+
     cfg = yaml.safe_load((HERE / "sources.yaml").read_text())
     svc = None if args.dry_run else sheets_service()
 
