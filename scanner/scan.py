@@ -339,7 +339,14 @@ def rank(rows) -> list[dict]:
         return rows
     ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(
         ideas=json.dumps([r["idea_summary"] for r in rows], indent=1)))
-    order = {r["idea_summary"]: (r["rank"], r["rationale"]) for r in ranking}
+    # Sonnet sometimes wraps the list in a dict like {"rankings": [...]};
+    # unwrap to the first list of objects, and tolerate odd shapes so a
+    # ranking glitch never discards verified ideas — they just write unranked.
+    if isinstance(ranking, dict):
+        lists = [v for v in ranking.values() if isinstance(v, list)]
+        ranking = lists[0] if lists else []
+    order = {r["idea_summary"]: (r.get("rank", 999), r.get("rationale", ""))
+             for r in ranking if isinstance(r, dict) and "idea_summary" in r}
     for row in rows:
         rk, why = order.get(row["idea_summary"], (999, ""))
         row["_rank"], row["notes"] = rk, why
