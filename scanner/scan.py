@@ -317,7 +317,9 @@ def verify(candidates) -> tuple[list[dict], list[dict]]:
 
 
 def build_rows(candidates, cfg) -> list[dict]:
-    stats = STATS_FILE.read_text() if STATS_FILE.exists() else "(stats file missing)"
+    # errors="replace" so a stray non-UTF-8 byte in the CSV can't crash a scan
+    stats = (STATS_FILE.read_text(encoding="utf-8", errors="replace")
+             if STATS_FILE.exists() else "(stats file missing)")
     rows = []
     for c in candidates:
         try:
