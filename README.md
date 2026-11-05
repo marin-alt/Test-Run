@@ -42,6 +42,10 @@ For a one-time scan **right now** without touching the standing settings:
 
 Blank boxes = run with the Scan Settings tab as-is.
 
+### 3. One-time lookback scan (past year)
+
+Actions tab → **One-Time Lookback Scan** → **Run workflow**. It searches the past 365 days across all objectives and source tiers, stages **every** idea that survives dedupe and verification (no cap), and does **not** list the already-law candidates (the Funnel line still shows how many were removed). Results land in a tab named like `Scan — 1-yr lookback — All objectives — Nov 05 2026`. Expect it to take an hour or more. It never runs on its own, and it ignores the Scan Settings tab's objectives, tiers, window and cap — but it does pick up anything in **Extra search topics**, so clear that cell first if you don't want those.
+
 ### Reading the results
 
 Each scan creates one new tab in the Vault. The tab name tells you the date and scan type. Rows are ranked best-first (rank + rationale in the Notes column), formatted to match the Policies tab so rows can be promoted by copy-paste, with `ID #` left blank for Marin to assign. Below the rows, the SCAN DETAILS block lists the candidates that were **killed because they're already Utah law** — worth skimming, since it's the main way the scanner earns trust.
@@ -90,6 +94,7 @@ Actions tab → **Policy Scan** → **Run workflow** (leave the boxes blank). Wa
 | `scanner/prompts.py` | The Claude prompts (extraction, dedupe, verification, row-building, ranking) |
 | `scanner/utah_statistics.csv` | Utah baseline stats, so cost/impact figures cite real numbers |
 | `.github/workflows/monthly-scan.yml` | The schedule (cron, currently 1st of month ~8 AM Mountain) and the Run-workflow button |
+| `.github/workflows/lookback-scan.yml` | The manual one-time 1-year lookback scan |
 
 ## Changing things
 

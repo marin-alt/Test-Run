@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import requests
@@ -63,14 +64,35 @@ DEFAULT_SETTINGS = {
     "tiers": None,        # None = all source tiers; otherwise e.g. [1] or [1, 2]
     "topics": [],         # extra search topics added to the run
     "days": 60,           # how far back to search
-    "max_ideas": 25,      # cap on rows staged
+    "max_ideas": 25,      # cap on rows staged; None = no cap
+    "label": "",          # results-tab name prefix, e.g. "1-yr lookback"
+    "show_killed": True,  # list already-law candidates in SCAN DETAILS
 }
+
+WORKERS = 4  # parallel Claude/Tavily calls in verify + row-building
+BATCH = 25   # items per Claude call in extraction and dedupe
 
 claude = Anthropic()  # reads ANTHROPIC_API_KEY
 
 
 def log(msg: str) -> None:
     print(f"[scan] {msg}", flush=True)
+
+
+def pmap(fn, items):
+    """Run fn over items with a few parallel workers; keeps input order."""
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        return list(ex.map(fn, items))
+
+
+def parse_max(val: str):
+    """'25' -> 25; 'all', 'no cap' or '0' -> None; junk -> leave unchanged (returns ...)."""
+    if re.search(r"\ball\b|no cap|none", val.lower()):
+        return None
+    m = re.search(r"\d+", val)
+    if not m:
+        return ...
+    return int(m.group()) or None  # 0 also means no cap
 
 
 def ask_claude(model: str, prompt: str, max_tokens: int = 8000) -> str:
@@ -141,8 +163,8 @@ def read_scan_settings(svc) -> dict:
             if m := re.search(r"\d+", val):
                 s["days"] = int(m.group())
         elif key.startswith("max"):
-            if m := re.search(r"\d+", val):
-                s["max_ideas"] = int(m.group())
+            if (v := parse_max(val)) is not ...:
+                s["max_ideas"] = v
     return s
 
 
@@ -151,13 +173,15 @@ def scan_label(settings) -> str:
              else "Obj " + ",".join(map(str, settings["objectives"])))
     if settings["topics"]:
         label += " + topics"
+    if settings["label"]:
+        label = f"{settings['label']} — {label}"
     return label
 
 
 def settings_summary(s) -> str:
     return (f"objectives={'all' if s['objectives'] is None else s['objectives']}, "
             f"tiers={'all' if s['tiers'] is None else s['tiers']}, "
-            f"window={s['days']}d, max={s['max_ideas']}"
+            f"window={s['days']}d, max={s['max_ideas'] or 'no cap'}"
             + (f", topics={s['topics']}" if s["topics"] else ""))
 
 
@@ -169,14 +193,18 @@ def selected_objectives(cfg, objs) -> list[str]:
 
 # ---------------------------------------------------------------- Tavily
 
-def tavily_search(query: str, domains=None, days: int = 60, max_results: int = 5):
+def tavily_search(query: str, domains=None, days=60, max_results: int = 5):
+    """days=None -> no date filter. Tavily's `days` only applies to news
+    searches, so the window is sent as an absolute start_date instead."""
+    date_filter = ({} if days is None else
+                   {"start_date": (dt.date.today() - dt.timedelta(days=days)).isoformat()})
     r = requests.post(
         "https://api.tavily.com/search",
         json={
             "api_key": os.environ["TAVILY_API_KEY"],
             "query": query,
-            "days": days,
             "max_results": max_results,
+            **date_filter,
             **({"include_domains": domains} if domains else {}),
         },
         timeout=60,
@@ -203,7 +231,7 @@ def read_existing_summaries(svc) -> list[str]:
         if title != "Policies" and not title.startswith(("Staging", "Scan —")):
             continue
         vals = svc.values().get(
-            spreadsheetId=VAULT_ID, range=f"'{title}'!D2:D500").execute()
+            spreadsheetId=VAULT_ID, range=f"'{title}'!D2:D").execute()
         summaries += [row[0] for row in vals.get("values", []) if row and row[0]]
     log(f"loaded {len(summaries)} existing vault/staging summaries")
     return summaries
@@ -232,7 +260,7 @@ def write_results_tab(svc, rows, settings, killed, funnel: str) -> str:
         ["Settings used", settings_summary(settings)],
         ["Funnel", funnel],
     ]
-    if killed:
+    if killed and settings["show_killed"]:
         details.append(
             ["Killed candidates (already Utah law or dead) — kept so we don't re-chase them:"])
         details += [[f"• {k['idea']}", k["verification"]["reasoning"]] for k in killed]
@@ -251,65 +279,99 @@ def write_results_tab(svc, rows, settings, killed, funnel: str) -> str:
 
 def gather_candidates(cfg, settings) -> list[dict]:
     tiers = settings["tiers"]
-    domains = [s["domain"] for s in cfg["sources"]
-               if tiers is None or s["tier"] in tiers]
+    groups = {}  # one search per tier, so each tier gets its own 20 results
+    for src in cfg["sources"]:
+        if tiers is None or src["tier"] in tiers:
+            groups.setdefault(src["tier"], []).append(src["domain"])
     objs = settings["objectives"]
     queries = [q["q"] for q in cfg["queries"]
                if objs is None or not q.get("objectives")
                or set(q["objectives"]) & set(objs)]
     queries += [f"Utah policy {t}" for t in settings["topics"]]
 
-    hits = []
+    hits, seen = [], set()
     for q in queries:
-        try:
-            hits += tavily_search(q, domains=domains, days=settings["days"])
-        except Exception as e:  # one failed query shouldn't kill the run
-            log(f"WARN query failed ({q}): {e}")
-    log(f"{len(hits)} search results from {len(queries)} queries, {len(domains)} domains")
+        for doms in groups.values():
+            try:
+                for h in tavily_search(q, domains=doms, days=settings["days"],
+                                       max_results=20):
+                    if h.get("url") not in seen:
+                        seen.add(h.get("url"))
+                        hits.append(h)
+            except Exception as e:  # one failed query shouldn't kill the run
+                log(f"WARN query failed ({q}): {e}")
+    log(f"{len(hits)} unique search results from {len(queries)} queries "
+        f"x {len(groups)} tiers")
     if not hits:
         return []
-    blob = "\n\n".join(
-        f"[{h.get('url')}] {h.get('title')}\n{h.get('content', '')[:1200]}" for h in hits)
-    ideas = ask_claude_json(MODEL_FAST, prompts.EXTRACT.format(
-        objectives="\n".join(selected_objectives(cfg, objs)), results=blob))
+
+    objectives = "\n".join(selected_objectives(cfg, objs))
+    ideas = []
+    for i in range(0, len(hits), BATCH):
+        blob = "\n\n".join(
+            f"[{h.get('url')}] {h.get('title')}\n{h.get('content', '')[:1200]}"
+            for h in hits[i:i + BATCH])
+        try:
+            got = ask_claude_json(MODEL_FAST, prompts.EXTRACT.format(
+                objectives=objectives, results=blob))
+            ideas += [g for g in got if isinstance(g, dict) and g.get("idea")]
+        except Exception as e:  # a bad batch loses its ideas, not the run
+            log(f"WARN extraction batch {i // BATCH + 1} failed: {e}")
     log(f"{len(ideas)} candidate ideas extracted")
     return ideas
 
 
 def dedupe(candidates, existing) -> list[dict]:
-    if not candidates:
-        return []
-    result = ask_claude_json(MODEL_SMART, prompts.DEDUPE.format(
-        candidates=json.dumps(candidates, indent=1),
-        existing="\n".join(f"- {s[:300]}" for s in existing)))
-    by_idea = {r["idea"]: r for r in result}
-    keep = [c for c in candidates
-            if not by_idea.get(c["idea"], {}).get("duplicate", False)]
+    """Drop candidates already in the Vault or a prior scan tab. Runs in
+    batches; ideas kept from earlier batches count as existing for later ones,
+    so the same idea found in two sources is only kept once."""
+    keep, existing = [], list(existing)
+    for i in range(0, len(candidates), BATCH):
+        batch = candidates[i:i + BATCH]
+        try:
+            result = ask_claude_json(MODEL_SMART, prompts.DEDUPE.format(
+                candidates=json.dumps(batch, indent=1),
+                existing="\n".join(f"- {s[:300]}" for s in existing)))
+            by_idea = {r["idea"]: r for r in result if isinstance(r, dict)}
+            kept = [c for c in batch
+                    if not by_idea.get(c["idea"], {}).get("duplicate", False)]
+        except Exception as e:  # keep the batch, but say it wasn't checked
+            log(f"WARN dedupe batch {i // BATCH + 1} failed: {e}")
+            kept = batch
+            for c in kept:
+                c["idea"] += "  [FLAG: duplicate check failed — may already be in the Vault]"
+        keep += kept
+        existing += [c["idea"] for c in kept]
     log(f"dedupe: {len(candidates)} -> {len(keep)}")
     return keep
 
 
+def verify_one(c) -> dict:
+    try:
+        results = tavily_search(f"Utah law status: {c['idea'][:150]}",
+                                days=None, max_results=5)
+        blob = "\n\n".join(
+            f"[{r.get('url')}] {r.get('title')}\n{r.get('content', '')[:800]}"
+            for r in results)
+        v = ask_claude_json(MODEL_FAST, prompts.VERIFY.format(
+            idea=c["idea"], results=blob))
+    except Exception as e:
+        log(f"WARN verification errored, treating as uncertain: {e}")
+        v = {"status": "uncertain", "reasoning": f"verification error: {e}",
+             "reframed_idea": c["idea"], "utah_law_cite": ""}
+    c["verification"] = v
+    return c
+
+
 def verify(candidates) -> tuple[list[dict], list[dict]]:
     live, dead = [], []
-    for c in candidates:
-        try:
-            results = tavily_search(f"Utah law status: {c['idea'][:150]}",
-                                    days=3650, max_results=5)
-            blob = "\n\n".join(
-                f"[{r.get('url')}] {r.get('title')}\n{r.get('content', '')[:800]}"
-                for r in results)
-            v = ask_claude_json(MODEL_FAST, prompts.VERIFY.format(
-                idea=c["idea"], results=blob))
-        except Exception as e:
-            log(f"WARN verification errored, treating as uncertain: {e}")
-            v = {"status": "uncertain", "reasoning": f"verification error: {e}",
-                 "reframed_idea": c["idea"], "utah_law_cite": ""}
-        c["verification"] = v
-        if v["status"] == "dead":
+    for c in pmap(verify_one, candidates):
+        v = c["verification"]
+        if v.get("status") == "dead":
             dead.append(c)
         else:
             c["idea"] = v.get("reframed_idea") or c["idea"]
-            if v["status"] == "uncertain":
+            if v.get("status") != "live":
                 c["idea"] += "  [FLAG: could not fully verify Utah status — check before use]"
             live.append(c)
     log(f"verify: {len(live)} live, {len(dead)} already-law/dead")
@@ -320,25 +382,33 @@ def build_rows(candidates, cfg) -> list[dict]:
     # errors="replace" so a stray non-UTF-8 byte in the CSV can't crash a scan
     stats = (STATS_FILE.read_text(encoding="utf-8", errors="replace")
              if STATS_FILE.exists() else "(stats file missing)")
-    rows = []
-    for c in candidates:
+
+    def one(c):
         try:
-            row = ask_claude_json(MODEL_SMART, prompts.BUILD_ROW.format(
+            return ask_claude_json(MODEL_SMART, prompts.BUILD_ROW.format(
                 idea=c["idea"], objective=c.get("objective", ""),
                 source_url=c.get("source_url", ""),
                 verification=json.dumps(c.get("verification", {})),
                 stats=stats[:8000], barriers="(use vault dropdown values)"))
-            rows.append(row)
         except Exception as e:
             log(f"WARN row build failed, skipping: {e}")
+            return None
+
+    rows = [r for r in pmap(one, candidates) if isinstance(r, dict)]
+    log(f"built {len(rows)} rows from {len(candidates)} verified ideas")
     return rows
 
 
 def rank(rows) -> list[dict]:
     if not rows:
         return rows
-    ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(
-        ideas=json.dumps([r["idea_summary"] for r in rows], indent=1)))
+    try:
+        ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(
+            ideas=json.dumps([r.get("idea_summary", "") for r in rows], indent=1)),
+            max_tokens=32000)
+    except Exception as e:  # never lose verified ideas to a ranking glitch
+        log(f"WARN ranking failed, writing rows unranked: {e}")
+        ranking = []
     # Sonnet sometimes wraps the list in a dict like {"rankings": [...]};
     # unwrap to the first list of objects, and tolerate odd shapes so a
     # ranking glitch never discards verified ideas — they just write unranked.
@@ -348,7 +418,7 @@ def rank(rows) -> list[dict]:
     order = {r["idea_summary"]: (r.get("rank", 999), r.get("rationale", ""))
              for r in ranking if isinstance(r, dict) and "idea_summary" in r}
     for row in rows:
-        rk, why = order.get(row["idea_summary"], (999, ""))
+        rk, why = order.get(row.get("idea_summary", ""), (999, ""))
         row["_rank"], row["notes"] = rk, why
     return sorted(rows, key=lambda r: r["_rank"])
 
@@ -383,7 +453,7 @@ def main() -> int:
     ap.add_argument("--max-ideas", type=int, help="cap on staged rows")
     args = ap.parse_args()
 
-    log("code build: thinking-block-fix (2026-07)")
+    log("code build: lookback-support (2026-11)")
 
     cfg = yaml.safe_load((HERE / "sources.yaml").read_text())
     svc = None if args.dry_run else sheets_service()
@@ -399,6 +469,16 @@ def main() -> int:
         for raw in (os.environ.get(env_var, ""), cli_val or ""):
             if raw.strip():
                 settings[key] = parse(raw)
+    # lookback-scan.yml sets these; the monthly workflow leaves them unset
+    if m := re.search(r"\d+", os.environ.get("SCAN_DAYS", "")):
+        settings["days"] = int(m.group())
+    if raw := os.environ.get("SCAN_MAX", "").strip():
+        if (v := parse_max(raw)) is not ...:
+            settings["max_ideas"] = v
+    if raw := os.environ.get("SCAN_LABEL", "").strip():
+        settings["label"] = raw
+    if os.environ.get("SCAN_SHOW_KILLED", "").strip().lower() == "false":
+        settings["show_killed"] = False
     if args.days:
         settings["days"] = args.days
     if args.max_ideas:
@@ -414,7 +494,9 @@ def main() -> int:
     n_raw = len(candidates)
     candidates = dedupe(candidates, existing)
     live, dead = verify(candidates)
-    rows = rank(build_rows(live, cfg))[: settings["max_ideas"]]
+    rows = rank(build_rows(live, cfg))
+    if settings["max_ideas"] is not None:
+        rows = rows[: settings["max_ideas"]]
 
     funnel = (f"{n_raw} candidates → {len(candidates)} after dedupe → "
               f"{len(live)} verified live, {len(dead)} killed → {len(rows)} staged")

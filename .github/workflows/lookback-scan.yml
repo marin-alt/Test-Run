@@ -1,0 +1,37 @@
+name: One-Time Lookback Scan
+
+# Manual only — never runs on a schedule. Searches the past year, stages every
+# idea that survives dedupe + verification (no cap), and leaves the
+# already-law candidates out of the results tab. Shares scan.py with the
+# monthly Policy Scan; nothing here changes how the monthly scan behaves.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300   # a year of results takes far longer than a monthly run
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scan
+        working-directory: scanner
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          VAULT_SPREADSHEET_ID: ${{ vars.VAULT_SPREADSHEET_ID }}
+          SCAN_OBJECTIVES: "All"
+          SCAN_TIERS: "All"
+          SCAN_DAYS: "365"
+          SCAN_MAX: "all"
+          SCAN_LABEL: "1-yr lookback"
+          SCAN_SHOW_KILLED: "false"
+        run: python scan.py
