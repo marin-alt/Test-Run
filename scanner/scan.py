@@ -67,7 +67,12 @@ DEFAULT_SETTINGS = {
     "max_ideas": 25,      # cap on rows staged; None = no cap
     "label": "",          # results-tab name prefix, e.g. "1-yr lookback"
     "show_killed": True,  # list already-law candidates in SCAN DETAILS
+    "mode": "topic",      # "topic" = topic queries per tier (monthly);
+                          # "annual" = every annual_queries line per source
+    "short_rows": False,  # True = skip cost/impact estimates (annual scan)
 }
+
+NOT_ESTIMATED = "Not estimated (annual scan) — fill in if this idea is picked"
 
 WORKERS = 4  # parallel Claude/Tavily calls in verify + row-building
 BATCH = 25   # items per Claude call in extraction and dedupe
@@ -182,6 +187,8 @@ def settings_summary(s) -> str:
     return (f"objectives={'all' if s['objectives'] is None else s['objectives']}, "
             f"tiers={'all' if s['tiers'] is None else s['tiers']}, "
             f"window={s['days']}d, max={s['max_ideas'] or 'no cap'}"
+            + (", mode=annual (every source separately)" if s["mode"] == "annual" else "")
+            + (", short rows" if s["short_rows"] else "")
             + (f", topics={s['topics']}" if s["topics"] else ""))
 
 
@@ -277,31 +284,41 @@ def write_results_tab(svc, rows, settings, killed, funnel: str) -> str:
 
 # ---------------------------------------------------------------- pipeline stages
 
-def gather_candidates(cfg, settings) -> list[dict]:
+def search_plan(cfg, settings) -> list[tuple[str, list[str]]]:
+    """The (query, domains) pairs to search. Monthly/topic mode: each topic
+    query once per source tier. Annual mode: every annual_queries line on
+    every source separately, so no site competes with another for results."""
     tiers = settings["tiers"]
+    srcs = [src for src in cfg["sources"] if tiers is None or src["tier"] in tiers]
+    if settings["mode"] == "annual":
+        return [(f"{src['hint']} {q}" if src.get("hint") else q, [src["domain"]])
+                for src in srcs if src.get("annual", True)
+                for q in cfg["annual_queries"] + [f"Utah {t}" for t in settings["topics"]]]
     groups = {}  # one search per tier, so each tier gets its own 20 results
-    for src in cfg["sources"]:
-        if tiers is None or src["tier"] in tiers:
-            groups.setdefault(src["tier"], []).append(src["domain"])
+    for src in srcs:
+        groups.setdefault(src["tier"], []).append(src["domain"])
     objs = settings["objectives"]
     queries = [q["q"] for q in cfg["queries"]
                if objs is None or not q.get("objectives")
                or set(q["objectives"]) & set(objs)]
     queries += [f"Utah policy {t}" for t in settings["topics"]]
+    return [(q, doms) for q in queries for doms in groups.values()]
 
+
+def gather_candidates(cfg, settings) -> list[dict]:
+    objs = settings["objectives"]
+    plan = search_plan(cfg, settings)
     hits, seen = [], set()
-    for q in queries:
-        for doms in groups.values():
-            try:
-                for h in tavily_search(q, domains=doms, days=settings["days"],
-                                       max_results=20):
-                    if h.get("url") not in seen:
-                        seen.add(h.get("url"))
-                        hits.append(h)
-            except Exception as e:  # one failed query shouldn't kill the run
-                log(f"WARN query failed ({q}): {e}")
-    log(f"{len(hits)} unique search results from {len(queries)} queries "
-        f"x {len(groups)} tiers")
+    for q, doms in plan:
+        try:
+            for h in tavily_search(q, domains=doms, days=settings["days"],
+                                   max_results=20):
+                if h.get("url") not in seen:
+                    seen.add(h.get("url"))
+                    hits.append(h)
+        except Exception as e:  # one failed query shouldn't kill the run
+            log(f"WARN query failed ({q} @ {doms[0] if len(doms) == 1 else 'tier'}): {e}")
+    log(f"{len(hits)} unique search results from {len(plan)} searches")
     if not hits:
         return []
 
@@ -399,26 +416,50 @@ def build_rows(candidates, cfg) -> list[dict]:
     return rows
 
 
+def short_rows(candidates) -> list[dict]:
+    """Annual scan: a row from what extraction and the Utah-law check already
+    found, with no extra Claude call. Cost/impact left for picked ideas."""
+    rows = []
+    for c in candidates:
+        v = c.get("verification", {})
+        rows.append({
+            "objective": c.get("objective", ""),
+            "idea_summary": c["idea"],
+            "idea_source": " — ".join(x for x in (c.get("source_label", ""),
+                                                  c.get("source_url", "")) if x),
+            "utah_code": v.get("utah_law_cite", ""),
+            "more_info": f"Utah-law check: {v.get('reasoning', '')}",
+            "estimated_cost": NOT_ESTIMATED,
+            "people_affected": NOT_ESTIMATED,
+        })
+    return rows
+
+
 def rank(rows) -> list[dict]:
     if not rows:
         return rows
+    numbered = "\n".join(f"{i}. {r.get('idea_summary', '')}"
+                         for i, r in enumerate(rows, 1))
     try:
-        ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(
-            ideas=json.dumps([r.get("idea_summary", "") for r in rows], indent=1)),
-            max_tokens=32000)
+        ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(ideas=numbered),
+                                  max_tokens=32000)
     except Exception as e:  # never lose verified ideas to a ranking glitch
         log(f"WARN ranking failed, writing rows unranked: {e}")
         ranking = []
     # Sonnet sometimes wraps the list in a dict like {"rankings": [...]};
-    # unwrap to the first list of objects, and tolerate odd shapes so a
-    # ranking glitch never discards verified ideas — they just write unranked.
+    # unwrap to the first list, and tolerate odd shapes so a ranking glitch
+    # never discards verified ideas — they just write unranked.
     if isinstance(ranking, dict):
         lists = [v for v in ranking.values() if isinstance(v, list)]
         ranking = lists[0] if lists else []
-    order = {r["idea_summary"]: (r.get("rank", 999), r.get("rationale", ""))
-             for r in ranking if isinstance(r, dict) and "idea_summary" in r}
-    for row in rows:
-        rk, why = order.get(row.get("idea_summary", ""), (999, ""))
+    order = {}
+    for r in ranking:
+        if isinstance(r, dict) and str(r.get("id", "")).isdigit():
+            order[int(r["id"])] = (r.get("rank", 999), r.get("rationale", ""))
+    for i, row in enumerate(rows, 1):
+        rk, why = order.get(i, (999, ""))
+        if not isinstance(rk, int):
+            rk = int(rk) if str(rk).isdigit() else 999
         row["_rank"], row["notes"] = rk, why
     return sorted(rows, key=lambda r: r["_rank"])
 
@@ -453,7 +494,7 @@ def main() -> int:
     ap.add_argument("--max-ideas", type=int, help="cap on staged rows")
     args = ap.parse_args()
 
-    log("code build: lookback-support (2026-11)")
+    log("code build: annual-scan (2026-11)")
 
     cfg = yaml.safe_load((HERE / "sources.yaml").read_text())
     svc = None if args.dry_run else sheets_service()
@@ -479,6 +520,10 @@ def main() -> int:
         settings["label"] = raw
     if os.environ.get("SCAN_SHOW_KILLED", "").strip().lower() == "false":
         settings["show_killed"] = False
+    if os.environ.get("SCAN_MODE", "").strip().lower() == "annual":
+        settings["mode"] = "annual"
+    if os.environ.get("SCAN_SHORT_ROWS", "").strip().lower() == "true":
+        settings["short_rows"] = True
     if args.days:
         settings["days"] = args.days
     if args.max_ideas:
@@ -494,7 +539,7 @@ def main() -> int:
     n_raw = len(candidates)
     candidates = dedupe(candidates, existing)
     live, dead = verify(candidates)
-    rows = rank(build_rows(live, cfg))
+    rows = rank(short_rows(live) if settings["short_rows"] else build_rows(live, cfg))
     if settings["max_ideas"] is not None:
         rows = rows[: settings["max_ideas"]]
 

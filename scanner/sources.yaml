@@ -2,6 +2,10 @@
 # domain: used for Tavily domain-restricted search
 # label:  human-readable name used in logs and email
 # tier:   1 = always scan, 2 = scan, 3 = scan (lower weight in ranking notes)
+# annual: false = left out of the annual scan (news and the Legislature's site
+#         publish thousands of items a year)
+# hint:   optional words added to annual-scan searches on that site, for a
+#         domain that covers far more than the org (e.g. usu.edu = all of USU)
 
 objectives:
   - "1. Support Children & Families"
@@ -28,6 +32,17 @@ queries:
   - {q: "Utah domestic violence trafficking child abuse policy recommendations",   objectives: [7]}
   - {q: "state policy innovation legislation model bill 2026",                     objectives: []}
 
+# Annual scan only: every one of these runs against EACH source on its own,
+# with no topic filter, so each site's past-year publications are covered
+# regardless of subject. Add a line to widen what counts as a publication.
+annual_queries:
+  - "report"
+  - "policy brief"
+  - "policy recommendations"
+  - "research study findings"
+  - "legislation proposal testimony"
+  - "data analysis publication"
+
 sources:
   # Tier 1 — Utah government & data
   - {domain: justice.utah.gov,        label: "CCJJ",                       tier: 1}
@@ -35,11 +50,11 @@ sources:
   - {domain: dhhs.utah.gov,           label: "Utah DHHS",                  tier: 1}
   - {domain: ibis.utah.gov,           label: "Utah IBIS",                  tier: 1}
   - {domain: schools.utah.gov,        label: "USBE",                       tier: 1}
-  - {domain: le.utah.gov,             label: "Utah Legislature",           tier: 1}
+  - {domain: le.utah.gov,             label: "Utah Legislature",           tier: 1, annual: false}
   # Tier 1 — Utah research institutes
   - {domain: gardner.utah.edu,        label: "Gardner Policy Institute",   tier: 1}
   - {domain: utahfoundation.org,      label: "Utah Foundation",            tier: 1}
-  - {domain: usu.edu,                 label: "UWLP (USU)",                 tier: 1}
+  - {domain: usu.edu,                 label: "UWLP (USU)",                 tier: 1, hint: "Utah Women and Leadership"}
   - {domain: healthpolicyproject.org, label: "Utah Health Policy Project", tier: 1}
   # Tier 2 — Utah advocacy & civil society
   - {domain: utahchildren.org,        label: "Voices for Utah Children",   tier: 2}
@@ -62,7 +77,7 @@ sources:
   - {domain: nwlc.org,                label: "NWLC",                       tier: 3}
   - {domain: bellpolicy.org,          label: "Bell Policy Center",         tier: 3}
   # Tier 3 — Utah news
-  - {domain: utahnewsdispatch.com,    label: "Utah News Dispatch",         tier: 3}
-  - {domain: sltrib.com,              label: "Salt Lake Tribune",          tier: 3}
-  - {domain: deseret.com,             label: "Deseret News",               tier: 3}
-  - {domain: ksl.com,                 label: "KSL",                        tier: 3}
+  - {domain: utahnewsdispatch.com,    label: "Utah News Dispatch",         tier: 3, annual: false}
+  - {domain: sltrib.com,              label: "Salt Lake Tribune",          tier: 3, annual: false}
+  - {domain: deseret.com,             label: "Deseret News",               tier: 3, annual: false}
+  - {domain: ksl.com,                 label: "KSL",                        tier: 3, annual: false}

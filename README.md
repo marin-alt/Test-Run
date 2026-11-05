@@ -42,9 +42,15 @@ For a one-time scan **right now** without touching the standing settings:
 
 Blank boxes = run with the Scan Settings tab as-is.
 
-### 3. One-time lookback scan (past year)
+### 3. Annual scan (past year, every source)
 
-Actions tab → **One-Time Lookback Scan** → **Run workflow**. It searches the past 365 days across all objectives and source tiers, stages **every** idea that survives dedupe and verification (no cap), and does **not** list the already-law candidates (the Funnel line still shows how many were removed). Results land in a tab named like `Scan — 1-yr lookback — All objectives — Nov 05 2026`. Expect it to take an hour or more. It never runs on its own, and it ignores the Scan Settings tab's objectives, tiers, window and cap — but it does pick up anything in **Extra search topics**, so clear that cell first if you don't want those.
+Actions tab → **Annual Scan (past year)** → **Run workflow**. Unlike the monthly scan, it does not search by topic. It searches **each** research, government and advocacy source in `sources.yaml` on its own for its past-year publications on any subject, using the `annual_queries` list (report, policy brief, recommendations, etc.). News sites and le.utah.gov are left out (`annual: false` in `sources.yaml`).
+
+- Stages **every** idea that survives dedupe and the Utah-law check (no cap), ranked.
+- Rows are **short**: idea, objective, source, Utah-law check and rank. Estimated Cost and # People Affected say "Not estimated" — fill those in for the ideas you pick.
+- Does **not** list the already-law candidates (the Funnel line still counts them).
+- Results land in a tab named like `Scan — Annual — All objectives — Nov 05 2026`. Expect it to take a few hours.
+- Never runs on its own. Ignores the Scan Settings tab's objectives, tiers, window and cap, but **does** add anything in **Extra search topics**, so clear that cell first if you don't want those.
 
 ### Reading the results
 
@@ -94,7 +100,7 @@ Actions tab → **Policy Scan** → **Run workflow** (leave the boxes blank). Wa
 | `scanner/prompts.py` | The Claude prompts (extraction, dedupe, verification, row-building, ranking) |
 | `scanner/utah_statistics.csv` | Utah baseline stats, so cost/impact figures cite real numbers |
 | `.github/workflows/monthly-scan.yml` | The schedule (cron, currently 1st of month ~8 AM Mountain) and the Run-workflow button |
-| `.github/workflows/lookback-scan.yml` | The manual one-time 1-year lookback scan |
+| `.github/workflows/annual-scan.yml` | The manual annual scan (past year, every source separately) |
 
 ## Changing things
 

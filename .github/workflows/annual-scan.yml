@@ -1,16 +1,18 @@
-name: One-Time Lookback Scan
+name: Annual Scan (past year)
 
-# Manual only — never runs on a schedule. Searches the past year, stages every
-# idea that survives dedupe + verification (no cap), and leaves the
-# already-law candidates out of the results tab. Shares scan.py with the
-# monthly Policy Scan; nothing here changes how the monthly scan behaves.
+# Manual only — never runs on a schedule. Searches every research, government
+# and advocacy source in sources.yaml SEPARATELY for its past-year
+# publications on any topic (news sites and le.utah.gov are left out), stages
+# every idea that survives dedupe + the Utah-law check (no cap) as a short row
+# with cost/impact left blank, and leaves the already-law candidates out.
+# Shares scan.py with the monthly Policy Scan.
 on:
   workflow_dispatch: {}
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 300   # a year of results takes far longer than a monthly run
+    timeout-minutes: 360   # GitHub's maximum; a year across every source takes hours
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +34,8 @@ jobs:
           SCAN_TIERS: "All"
           SCAN_DAYS: "365"
           SCAN_MAX: "all"
-          SCAN_LABEL: "1-yr lookback"
+          SCAN_LABEL: "Annual"
           SCAN_SHOW_KILLED: "false"
+          SCAN_MODE: "annual"
+          SCAN_SHORT_ROWS: "true"
         run: python scan.py

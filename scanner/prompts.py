@@ -98,11 +98,11 @@ RANK = """Rank these staged policy ideas best-first using TPP's scoring rubric:
 3. Feasibility: realistic path through Utah's legislature; public + private support
 4. Evidence: data-proven outcomes; other states' success
 
-Return JSON: a list of objects with keys:
-  idea_summary (copied verbatim from input)
-  rank (integer, 1 = best)
+Return JSON: a list with one object per idea, with keys:
+  id (integer: the idea's number from the list below)
+  rank (integer, 1 = best, no ties)
   rationale (one sentence for the Notes column, e.g. "RANK 3 — big reach, hard politics")
 
-Ideas:
+Ideas (numbered):
 {ideas}
 """
