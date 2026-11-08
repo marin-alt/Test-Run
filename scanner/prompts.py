@@ -98,9 +98,11 @@ code section or past attempt.
 - Target / Barrier, Type of change, Type of cost: use a value from the
   Vault's lists below when one fits; leave target_barrier blank if none does.
 - Legal interpretation claims: mark "[HYPOTHESIS — requires counsel review]".
-- Keep EVERY field under about 400 characters, like a spreadsheet cell a
-  person can scan: lead with the number or range, then the math in one line,
-  then source URLs, then the Conf rating. No narrative or background.
+- Keep EVERY field under 400 characters, like a spreadsheet cell a person
+  can scan. estimated_cost and people_affected: "<range> | <math in one
+  line> | <source URL(s)> | Conf: LOW/MED/HIGH" — the rating once, at the
+  end. cost_explanation and impact_explanation: one sentence at most.
+- target_barrier must belong to the same objective (same leading number).
 
 Idea: {idea}
 Objective: {objective}

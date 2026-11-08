@@ -106,10 +106,13 @@ def parse_max(val: str):
 
 
 def ask_claude(model: str, prompt: str, max_tokens: int = 8000) -> str:
-    resp = claude.messages.create(
+    # streaming: the SDK refuses non-streaming calls whose max_tokens could
+    # take over 10 minutes (e.g. ranking hundreds of ideas)
+    with claude.messages.stream(
         model=model, max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
-    )
+    ) as stream:
+        resp = stream.get_final_message()
     # Models that emit a thinking block put it first, so take the text block,
     # not content[0] (which may be a ThinkingBlock with no .text).
     for block in resp.content:
@@ -397,6 +400,22 @@ def search_plan(cfg, settings) -> list[tuple[str, list[str]]]:
     return [(q, doms) for q in queries for doms in groups.values()]
 
 
+LISTING_HINTS = ("meeting", "agenda", "search", "/tag/", "/category/", "/topics/",
+                 "calendar", "/news/?", "index.php", "/archive")
+
+
+def is_listing_page(url: str) -> bool:
+    """True for homepages and list/index pages (meeting lists, search, tags),
+    which aren't a specific source document."""
+    u = str(url or "").strip().lower()
+    if not u.startswith("http"):
+        return True
+    path = u.split("://", 1)[1].partition("/")[2].split("#")[0]
+    if path.strip("/") == "":
+        return True
+    return any(h in "/" + path for h in LISTING_HINTS)
+
+
 def gather_candidates(cfg, settings) -> list[dict]:
     objs = settings["objectives"]
     plan = search_plan(cfg, settings)
@@ -423,7 +442,8 @@ def gather_candidates(cfg, settings) -> list[dict]:
         try:
             got = ask_claude_json(MODEL_FAST, prompts.EXTRACT.format(
                 objectives=objectives, results=blob, today=dt.date.today().isoformat()))
-            ideas += [g for g in got if isinstance(g, dict) and g.get("idea")]
+            ideas += [g for g in got if isinstance(g, dict) and g.get("idea")
+                      and not is_listing_page(g.get("source_url", ""))]
         except Exception as e:  # a bad batch loses its ideas, not the run
             log(f"WARN extraction batch {i // BATCH + 1} failed: {e}")
     log(f"{len(ideas)} candidate ideas extracted")
@@ -623,13 +643,9 @@ def read_policy_headers(svc) -> list[str]:
 
 def to_sheet_rows(rows, headers=VAULT_HEADERS) -> list[list[str]]:
     plan = column_plan(headers)
-    # if the Vault has no column for an explanation, keep it next to its number
-    for num, expl in (("estimated_cost", "cost_explanation"),
-                      ("people_affected", "impact_explanation")):
-        if expl not in plan:
-            for r in rows:
-                if r.get(expl):
-                    r[num] = f"{r.get(num, '')} — {r[expl]}".strip(" —")
+    # The CURRENT Vault has no explanation columns; the number cell already
+    # carries its one-line math, source and Conf rating, so the longer
+    # explanation is dropped rather than glued on (it doubled cell length).
     out = []
     for r in rows:
         out.append([f[1:] if f.startswith("=") else str(r.get(f, "")) if f else ""
@@ -659,6 +675,9 @@ def finish_rows(rows, cfg, options) -> list[dict]:
         r["team_member"] = stamp
         r["objective"] = normalize_objective(r.get("objective"), cfg,
                                              options.get("objective", []))
+        tb, ob = str(r.get("target_barrier", "")), r["objective"]
+        if tb[:1].isdigit() and ob[:1].isdigit() and tb[0] != ob[0]:
+            r["target_barrier"] = ""  # Guide: objective and target must coincide
     return rows
 
 
