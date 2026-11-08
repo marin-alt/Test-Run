@@ -10,7 +10,12 @@ Rules:
   could actually do (statute, rule, appropriation, waiver). Skip federal-only ideas,
   vague aspirations ("invest in kids"), and pure research findings with no ask.
 - Phrase each idea verb-first: "Fund...", "Require...", "Cap...", "Create...".
-- Note which source it came from (URL).
+- Today is {today}. Utah's general session runs January–March. If an idea is a
+  bill from a session that has already ended, phrase it as reintroducing or
+  re-running that bill, not "enact" it.
+- source_url must be the specific report, brief, study, bill or article that
+  contains the idea. SKIP ideas that only appear on a listing or index page
+  (meeting lists, agendas index, search results, homepages, tag pages).
 
 The objectives IN SCOPE for this scan, each with its numbered sub-goals.
 An idea is in scope ONLY if it would directly advance one of these sub-goals;
@@ -93,6 +98,9 @@ code section or past attempt.
 - Target / Barrier, Type of change, Type of cost: use a value from the
   Vault's lists below when one fits; leave target_barrier blank if none does.
 - Legal interpretation claims: mark "[HYPOTHESIS — requires counsel review]".
+- Keep EVERY field under about 400 characters, like a spreadsheet cell a
+  person can scan: lead with the number or range, then the math in one line,
+  then source URLs, then the Conf rating. No narrative or background.
 
 Idea: {idea}
 Objective: {objective}
@@ -117,12 +125,20 @@ Return JSON with keys (matching vault columns):
   cost_explanation, people_affected, impact_explanation, follow_up
 """
 
-RANK = """Rank these staged policy ideas best-first using TPP's scoring rubric:
+RANK = """Today is {today}. Rank these staged policy ideas best-first using TPP's scoring rubric:
 1. Values alignment: cross-political-spectrum framing potential; removes barriers for
    people in poverty, women, children, people of color
 2. Impact: how many Utahns, how often (daily > monthly > yearly)
 3. Feasibility: realistic path through Utah's legislature; public + private support
 4. Evidence: data-proven outcomes; other states' success
+
+Always rank these BELOW every substantive policy idea (keep them; just put
+them last):
+- technical or administrative rule cleanups (e.g., updating references or
+  wording in an agency rule) with no real change in policy
+- actions that depend on a study or report that hasn't been released yet
+- "pass bill X" where bill X is from a session that has already ended, unless
+  it is framed as reintroducing it
 
 Return JSON: a list with one object per idea, with keys:
   id (integer: the idea's number from the list below)

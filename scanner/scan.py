@@ -351,7 +351,7 @@ def vault_options(svc) -> dict:
     """Values the team already uses in Policies (Target / Barrier, Type(s) of
     Change, Type(s) of Cost), so new rows use the same vocabulary. Only values
     used at least twice count, to skip one-off free text."""
-    out = {"target_barrier": [], "type_of_change": [], "type_of_cost": []}
+    out = {"objective": [], "target_barrier": [], "type_of_change": [], "type_of_cost": []}
     if not svc:
         return out
     try:
@@ -422,7 +422,7 @@ def gather_candidates(cfg, settings) -> list[dict]:
             for h in hits[i:i + BATCH])
         try:
             got = ask_claude_json(MODEL_FAST, prompts.EXTRACT.format(
-                objectives=objectives, results=blob))
+                objectives=objectives, results=blob, today=dt.date.today().isoformat()))
             ideas += [g for g in got if isinstance(g, dict) and g.get("idea")]
         except Exception as e:  # a bad batch loses its ideas, not the run
             log(f"WARN extraction batch {i // BATCH + 1} failed: {e}")
@@ -543,7 +543,7 @@ def short_rows(candidates, cfg) -> list[dict]:
     """Annual scan: what extraction and the Utah-law check found — no extra
     searches or Claude calls. Full treatment happens later for picked ideas."""
     return [{
-        "objective": c.get("objective", ""),
+        "objective": normalize_objective(c.get("objective", ""), cfg),
         "target_barrier": target_label(cfg, c.get("target", "")),
         "idea_summary": c["idea"],
         "source_label": c.get("source_label", ""),
@@ -559,7 +559,8 @@ def rank(rows) -> list[dict]:
     numbered = "\n".join(f"{i}. {r.get('idea_summary', '')}"
                          for i, r in enumerate(rows, 1))
     try:
-        ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(ideas=numbered),
+        ranking = ask_claude_json(MODEL_SMART, prompts.RANK.format(
+            ideas=numbered, today=dt.date.today().isoformat()),
                                   max_tokens=32000)
     except Exception as e:  # never lose verified ideas to a ranking glitch
         log(f"WARN ranking failed, writing rows unranked: {e}")
@@ -638,10 +639,26 @@ def to_sheet_rows(rows, headers=VAULT_HEADERS) -> list[list[str]]:
 
 # ---------------------------------------------------------------- main
 
-def finish_rows(rows) -> list[dict]:
+def normalize_objective(text, cfg, vault_objs=()) -> str:
+    """'Strengthen Public Education' or '3' -> the numbered name the Vault
+    uses, e.g. '3. Strengthen Public Education'."""
+    text = str(text or "").strip()
+    names = list(vault_objs) + list(cfg["objectives"])
+    m = re.match(r"\s*(\d)", text)
+    n = m.group(1) if m else next(
+        (o.split(".")[0] for o in cfg["objectives"]
+         if text and text.lower() in o.lower()), None)
+    if n is None:
+        return text
+    return next((o for o in names if o.strip().startswith(f"{n}.")), text)
+
+
+def finish_rows(rows, cfg, options) -> list[dict]:
     stamp = f"auto-scan {dt.date.today().isoformat()}"
     for r in rows:
         r["team_member"] = stamp
+        r["objective"] = normalize_objective(r.get("objective"), cfg,
+                                             options.get("objective", []))
     return rows
 
 
@@ -682,7 +699,8 @@ def full_treatment(svc, cfg, settings) -> int:
         return 0
 
     live, dead = verify(picks)
-    rows = finish_rows(rank(build_rows(live, read_utah_stats(svc), vault_options(svc))))
+    options = vault_options(svc)
+    rows = finish_rows(rank(build_rows(live, read_utah_stats(svc), options)), cfg, options)
     stage_rows(svc, rows)
 
     today = dt.date.today().isoformat()
@@ -809,10 +827,11 @@ def main() -> int:
     else:
         order = {r["_key"]: (r["_rank"], r.get("notes", "")) for r in ranked}
         chosen = [c for c in live if c["_key"] in order]
-        rows = build_rows(chosen, read_utah_stats(svc), vault_options(svc))
+        options = vault_options(svc)
+        rows = build_rows(chosen, read_utah_stats(svc), options)
         for r in rows:
             r["_rank"], r["notes"] = order.get(r.get("_key"), (999, ""))
-        rows = finish_rows(sorted(rows, key=lambda r: r["_rank"]))
+        rows = finish_rows(sorted(rows, key=lambda r: r["_rank"]), cfg, options)
 
     where = "listed for picking" if annual else f"added to {STAGING_TAB}"
     funnel = (f"{n_raw} candidates → {len(candidates)} after dedupe → "
