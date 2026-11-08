@@ -766,12 +766,22 @@ def main() -> int:
     candidates = dedupe(candidates, existing)
     live, dead = verify(candidates)
     annual = settings["mode"] == "annual"
-    if annual:
-        rows = rank(short_rows(live, cfg))
-    else:
-        rows = finish_rows(rank(build_rows(live, read_utah_stats(svc), vault_options(svc))))
+    # rank first, then cap, so only the ideas that will be staged get the
+    # extra cost search and full row (saves credits on capped monthly runs)
+    for i, c in enumerate(live):
+        c["_key"] = i
+    ranked = rank([{**r, "_key": c["_key"]} for r, c in zip(short_rows(live, cfg), live)])
     if settings["max_ideas"] is not None:
-        rows = rows[: settings["max_ideas"]]
+        ranked = ranked[: settings["max_ideas"]]
+    if annual:
+        rows = ranked
+    else:
+        order = {r["_key"]: (r["_rank"], r.get("notes", "")) for r in ranked}
+        chosen = [c for c in live if c["_key"] in order]
+        rows = build_rows(chosen, read_utah_stats(svc), vault_options(svc))
+        for r in rows:
+            r["_rank"], r["notes"] = order.get(r.get("_key"), (999, ""))
+        rows = finish_rows(sorted(rows, key=lambda r: r["_rank"]))
 
     where = "listed for picking" if annual else f"added to {STAGING_TAB}"
     funnel = (f"{n_raw} candidates → {len(candidates)} after dedupe → "
