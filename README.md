@@ -74,7 +74,7 @@ And under **Variables** (same page, "Variables" tab):
 
 | Variable | Value |
 |---|---|
-| `VAULT_SPREADSHEET_ID` | `1V2drIfK1Gn4pb5i_Uj5S7f4SV4jiV227Wt6JV7ouXEE` |
+| `VAULT_SPREADSHEET_ID` | `1rWN91-oQ5UIsh1jTFAtA_xV19HtzbdcJ9-kONpDVLk0` (CURRENT Policy Vault; the July 2026 scans ran against the OG Policy Vault, `1V2drIfK1Gn4pb5i_Uj5S7f4SV4jiV227Wt6JV7ouXEE`) |
 
 ### 2. Google service account (lets the script read settings and write results)
 

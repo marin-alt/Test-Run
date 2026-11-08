@@ -264,7 +264,8 @@ def read_existing_summaries(svc) -> list[str]:
     return summaries
 
 
-def write_results_tab(svc, rows, settings, killed, funnel: str) -> str:
+def write_results_tab(svc, rows, settings, killed, funnel: str,
+                      headers=VAULT_HEADERS) -> str:
     today = dt.date.today()
     base = f"Scan — {scan_label(settings)} — {today.strftime('%b %d %Y')}"
     meta = svc.get(spreadsheetId=VAULT_ID).execute()
@@ -295,7 +296,7 @@ def write_results_tab(svc, rows, settings, killed, funnel: str) -> str:
     svc.values().update(
         spreadsheetId=VAULT_ID, range=f"'{title}'!A1",
         valueInputOption="RAW",
-        body={"values": [VAULT_HEADERS] + rows + details},
+        body={"values": [headers] + rows + details},
     ).execute()
     url = f"https://docs.google.com/spreadsheets/d/{VAULT_ID}/edit?gid={gid}#gid={gid}"
     log(f"wrote {len(rows)} rows to '{title}' -> {url}")
@@ -487,20 +488,57 @@ def rank(rows) -> list[dict]:
     return sorted(rows, key=lambda r: r["_rank"])
 
 
-def to_sheet_rows(rows) -> list[list[str]]:
+# Which scanner field fills which Policies column, matched on the start of the
+# column's header (lowercase). First match wins. Columns not listed are left
+# blank for the team. Works for both the OG and CURRENT Vault layouts.
+COLUMN_FIELDS = [
+    ("objective", "objective"), ("target", "target_barrier"),
+    ("idea summary", "idea_summary"), ("policy pitch", "=N"),
+    ("idea source", "idea_source"), ("utah code", "utah_code"),
+    ("past attempts", "past_attempts"), ("more info", "more_info"),
+    ("type(s) of change", "type_of_change"), ("type(s) of cost", "type_of_cost"),
+    ("cost notes", "cost_notes"), ("team member", "=auto-scan"),
+    ("estimated cost", "estimated_cost"), ("cost explanation", "cost_explanation"),
+    ("impact / population", "impact_explanation"), ("impact - #", "people_affected"),
+    ("# people", "people_affected"), ("other follow up", "follow_up"),
+    ("notes / reactions", "notes"),
+]
+
+
+def column_plan(headers) -> list[str]:
+    plan = []
+    for h in headers:
+        h = str(h).strip().lower()
+        plan.append(next((f for pre, f in COLUMN_FIELDS if h.startswith(pre)), ""))
+    return plan
+
+
+def read_policy_headers(svc) -> list[str]:
+    """The live Policies header row, so scan rows paste straight into it."""
+    try:
+        vals = svc.values().get(spreadsheetId=VAULT_ID,
+                                range="'Policies'!A1:AZ1").execute()
+        headers = vals.get("values", [[]])[0]
+        if any(column_plan(headers)):
+            return headers
+    except Exception as e:
+        log(f"WARN could not read Policies headers ({e}) — using built-in layout")
+    return VAULT_HEADERS
+
+
+def to_sheet_rows(rows, headers=VAULT_HEADERS) -> list[list[str]]:
+    plan = column_plan(headers)
+    # if the Vault has no column for an explanation, keep it next to its number
+    for num, expl in (("estimated_cost", "cost_explanation"),
+                      ("people_affected", "impact_explanation")):
+        if expl not in plan:
+            for r in rows:
+                if r.get(expl):
+                    r[num] = f"{r.get(num, '')} — {r[expl]}".strip(" —")
     out = []
     for r in rows:
-        out.append([
-            "", r.get("objective", ""), r.get("target_barrier", ""),
-            r.get("idea_summary", ""), "N", r.get("idea_source", ""), "",
-            r.get("utah_code", ""), r.get("past_attempts", ""),
-            r.get("more_info", ""), r.get("type_of_change", ""),
-            r.get("type_of_cost", ""), r.get("cost_notes", ""),
-            "auto-scan", "", "", "", r.get("estimated_cost", ""),
-            r.get("cost_explanation", ""), r.get("people_affected", ""),
-            r.get("impact_explanation", ""), r.get("follow_up", ""),
-            r.get("notes", ""), "", "", "", "", "", "", "",
-        ])
+        out.append([f[1:] if f.startswith("=") else str(r.get(f, "")) if f else ""
+                    for f in plan])
     return out
 
 
@@ -577,7 +615,8 @@ def main() -> int:
     if not rows and not dead:
         log("nothing survived and nothing was killed — no tab written")
         return 0
-    write_results_tab(svc, to_sheet_rows(rows), settings, dead, funnel)
+    headers = read_policy_headers(svc)
+    write_results_tab(svc, to_sheet_rows(rows, headers), settings, dead, funnel, headers)
     log(f"done: {funnel}")
     return 0
 
