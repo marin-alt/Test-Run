@@ -5,12 +5,12 @@ Male,1794224,2025,https://www.census.gov/quickfacts/UT
 White,3156702,2024,https://www.census.gov/quickfacts/UT
 Hispanic or Latino (can be any race),597075,2024,https://www.census.gov/quickfacts/UT
 American Indian or Alaskan Native,56622,2024,https://www.census.gov/quickfacts/UT
-Asian,109706,2024,https://www.census.gov/quickfacts/UT
+Asian,97516,2023,https://api.census.gov/data/2023/pep/charv.html
 Black or African American,60161,2024,https://www.census.gov/quickfacts/UT
 Native Hawaiian and Other Pacific Islander,42467,2024,https://www.census.gov/quickfacts/UT
-Two or More Races,109706,2024,https://www.census.gov/quickfacts/UT
+Two or More Races,103005,2023,https://api.census.gov/data/2023/pep/charv.html
 Median age,32.1,2022,https://ibis.utah.gov/ibisph-view/indicator/view/AgeDistPop.html
-Population under 18 (%),941348,2022,https://ibis.utah.gov/ibisph-view/indicator/view/AgeDistPop.html
+Population under 18 (%),0.266,2024,https://data.census.gov/table?q=DP05&y=2024&d=ACS%201-Year%20Estimates%20Data%20Profiles&g=0400000US49
 Number of households,1184428,2024,https://data.census.gov/profile/Utah?g=040XX00US49
 Persons per household,2.97,2024,https://censusreporter.org/profiles/04000US49-utah/
 Per capita income,41806,2024,https://censusreporter.org/profiles/04000US49-utah/
@@ -24,8 +24,8 @@ Children under 18,941349,2022,Kids Count Database
 Live births to Utah residents in one year,44992,2023,https://ibis.utah.gov/ibisph-view/indicator/complete_profile/BrthRat.html
 Families with children under 18,308096,2022,Kids Count Database
 Family households,782668,2022,Kids Count Database
-Single-parent households with children,173406.296,2022,https://ibis.utah.gov/ibisph-view/indicator/complete_profile/HHStruct.html
-Married with children,987354.216,2022,https://ibis.utah.gov/ibisph-view/indicator/complete_profile/HHStruct.html
+Single-parent households with children,58158,2024,https://data.census.gov/table?q=DP02&y=2024&d=ACS%201-Year%20Estimates%20Data%20Profiles&g=0400000US49
+Married with children,313930,2024,https://data.census.gov/table?q=DP02&y=2024&d=ACS%201-Year%20Estimates%20Data%20Profiles&g=0400000US49
 "Single female, with own children under 18",48516,2022,Kids Count Database
 "Single male, with own children under 18",23243,2022,Kids Count Database
 Licensed child care centeres,523,2024,ffyf.org/states/utah
@@ -36,14 +36,14 @@ Children in Poverty 0-5,23782,2025,https://www.census.gov/quickfacts/UT
 Age 65+,438824,2025,https://www.census.gov/quickfacts/UT
 Disabled (<65),283112,2025,https://www.census.gov/quickfacts/UT
 Number of citizens in poverty,293729,2025,https://www.census.gov/quickfacts/UT
-Female Labor Force Participation,2208276,2025,https://www.census.gov/quickfacts/UT
+Female Labor Force Participation,0.629,2024,https://data.census.gov/table?q=DP03&y=2024&d=ACS%201-Year%20Estimates%20Data%20Profiles&g=0400000US49
 Adults in intergenerational poverty,75078,2024,Kids Count Database
 Children in intergenerational poverty,72814,2024,Kids Count Database
 Median household income,95166,2024,https://www.census.gov/quickfacts/UT
 Replacement rate,1.8 children,2025,https://www.deseret.com/family/2025/10/02/utah-women-fertility-us-trends-marriage-patterns-different/
 "Teen birth rate (ages 15-19, per 1,000 females)",8,2023,https://ibis.utah.gov/ibisph-view/report/phom/complete/BrthRat.html
-Children without health insurance (%),6.60%,2024,https://kidshealthcarereport.ccf.georgetown.edu/states/utah/
-Children without health insurance,233567,2024,https://kidshealthcarereport.ccf.georgetown.edu/states/utah/
+Children without health insurance (%),0.066,2024,https://data.census.gov/table?q=DP03&y=2024&d=ACS%201-Year%20Estimates%20Data%20Profiles&g=0400000US49
+Children without health insurance,65465,2024,https://data.census.gov/table?q=DP03&y=2024&d=ACS%201-Year%20Estimates%20Data%20Profiles&g=0400000US49
 "Live births to Utah residents (rate per 1,000 population)",13,2023,https://ibis.utah.gov/ibisph-view/indicator/view/BrthRat.html
 "Children being raised by relatives (kinship care, in or outside formal system)",21000,2024,https://cssutah.org/services/kinship-care/
 Median household income,98336,2025,https://gardner.utah.edu/news/utahs-median-household-income-of-98336-ranks-highest-in-the-u-s-when-adjusted-for-price-parity/
@@ -62,7 +62,7 @@ Adults 25+ with bachelor's degree or higher (%),37.90%,2022,https://ibis.utah.go
 Working Utahns without access to employer-provided paid family leave,~75%,2026,https://www.sltrib.com/opinion/commentary/2026/03/03/voices-truly-be-pro-family-utah/
 Utahns lacking access to unpaid FMLA leave,65%,2026,https://www.sltrib.com/opinion/commentary/2026/03/03/voices-truly-be-pro-family-utah/
 Pay transparency / salary range disclosure law status,No statewide law,2026,https://www.sixfifty.com/blog/utah-pay-transparency-law-requirements/
-Public school enrollment,606311,2025,https://utahpolicy.com/news-release/75643-usbe-utah-public-school-enrollment-drops-for-third-consecutive-year
+Public school enrollment,656311,2025-26,https://www.schools.utah.gov/publicrelations/_publicrelations_/_2026/USBENewsReleaseUtahPublicSchoolsEnrollmentDecline20262027.pdf
 Counselors,499 to 1,2024,https://schools.utah.gov/studentservices/_studentservicesprograms/_behaviordocs/PCG%20USBE%20Behavior%20Landscape%20Infographic%204.14.25.pdf
 School psychologists ratio ,1971 to 1,2024,https://schools.utah.gov/studentservices/_studentservicesprograms/_behaviordocs/PCG%20USBE%20Behavior%20Landscape%20Infographic%204.14.25.pdf
 Student-teacher ratio,20.8,2024,Kids Count Databook
@@ -84,7 +84,7 @@ Hispanic (K-12 Grade student pop),132113,2024,Kids Count Databook
 "3rd grade reading proficiency (RISE, % meeting grade-level expectations)",50.30%,2025,https://www.deseret.com/utah/2026/01/05/utah-k-3-literacy/
 Public K-12 enrollment (2025-26 school year),656311,2025,https://utahpolicy.com/news-release/75643-usbe-utah-public-school-enrollment-drops-for-third-consecutive-year
 English learner students,58419,2025,https://utahpolicy.com/news-release/75643-usbe-utah-public-school-enrollment-drops-for-third-consecutive-year
-Economically disadvantaged students,1203227,2025,https://utahpolicy.com/news-release/75643-usbe-utah-public-school-enrollment-drops-for-third-consecutive-year
+Economically disadvantaged students,FLAG: NOT VERIFIED (exceeds total enrollment) — do not use,2025,https://utahpolicy.com/news-release/75643-usbe-utah-public-school-enrollment-drops-for-third-consecutive-year
 Four-year graduation rate (2025 cohort),89.80%,2025,https://schools.utah.gov/publicrelations/_publicrelations_/_2025_/Utah%202025%20Graduation%20Rates.pdf
 Dropout rate (2025 cohort),8.50%,2025,https://schools.utah.gov/publicrelations/_publicrelations_/_2025_/Utah%202025%20Graduation%20Rates.pdf
 "Teacher turnover, first 5 years (2016 cohort)",42%,2021,https://le.utah.gov/interim/2022/pdf/00002294.pdf
@@ -107,7 +107,7 @@ Number of adults with a mental health condition,550000,2021,https://www.nami.org
 Average number of deaths per month from drug overdose,49,2024,https://vipp.utah.gov/substance-use/
 Suicide rate,"20.93 per 100,000 (age-adjusted, 2021-2023 avg); 696 deaths in 2023",2021-2023,Utah IBIS Suicide Health Indicator Report (ibis.utah.gov/ibisph-view/indicator/view/SuicDth.SA.html)
 Obesity rate,31.0% of adults (age-adjusted),2023,Utah IBIS BRFSS Obesity Indicator (ibis.utah.gov/ibisph-view/indicator/view/Obe.UT_US_20Y.html)
-Births per year,232217,2021,https://www.cdc.gov/nchs/maternal-mortality/mmr-2018-2022-state-data.pdf
+Births per year,44992,2023,https://ibis.utah.gov/ibisph-view/indicator/view/BrthRat.html
 Maternal health indicators,"Maternal mortality: 16/100,000 ",2021,https://www.cdc.gov/nchs/maternal-mortality/mmr-2018-2022-state-data.pdf
 Adult diabetes prevalence (age-adjusted),9.00%,2022,https://ibis.utah.gov/ibisph-view/report/phom/complete/DiabPrev.html
 Counties with insufficient maternity care access,10,2025,https://ruralhealth.health.utah.gov/shortage-designations-hpsa/

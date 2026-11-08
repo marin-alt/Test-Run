@@ -334,11 +334,11 @@ def write_annual_tab(svc, rows) -> None:
 
 
 def read_utah_stats(svc) -> str:
-    """The Vault's Utah Statistics tab (metric, value, year, source);
+    """The Vault's Utah Statistics tab (metric, value, year, source, note);
     falls back to the bundled CSV if the tab can't be read."""
     if svc:
         try:
-            rows = read_rows(svc, STATS_TAB, "A1:D500")
+            rows = read_rows(svc, STATS_TAB, "A1:E500")  # E = verification notes / FLAGs
             if rows:
                 return "\n".join(" | ".join(r) for r in rows if r)
         except Exception as e:

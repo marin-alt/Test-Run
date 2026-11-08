@@ -108,7 +108,7 @@ Law and bill research:
 Cost research:
 {cost_research}
 
-Utah statistics (metric | value | year | source):
+Utah statistics (metric | value | year | source | note — never use a row whose note says FLAG or NOT VERIFIED):
 {stats}
 
 Return JSON with keys (matching vault columns):
