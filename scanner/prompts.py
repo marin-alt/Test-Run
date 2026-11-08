@@ -12,13 +12,17 @@ Rules:
 - Phrase each idea verb-first: "Fund...", "Require...", "Cap...", "Create...".
 - Note which source it came from (URL).
 
-The objectives IN SCOPE for this scan (tag each idea with the best fit; SKIP
-any idea that does not fit one of these):
+The objectives IN SCOPE for this scan, each with its numbered sub-goals.
+An idea is in scope ONLY if it would directly advance one of these sub-goals;
+SKIP anything that does not (e.g. general economic development, water,
+land use or energy policy with no clear link to a sub-goal). Objective 5 is
+the catch-all for in-scope ideas that fit no other objective.
 {objectives}
 
 Return JSON: a list of objects with keys:
   idea (string, 1-2 sentences, verb-first)
-  objective (string, one of the 7 above)
+  objective (string, the objective's full name as written above)
+  target (string, the number of the sub-goal it advances most, e.g. "1.3")
   source_url (string)
   source_label (string)
 

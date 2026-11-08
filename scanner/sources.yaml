@@ -32,16 +32,59 @@ queries:
   - {q: "Utah domestic violence trafficking child abuse policy recommendations",   objectives: [7]}
   - {q: "state policy innovation legislation model bill 2026",                     objectives: []}
 
-# Annual scan only: every one of these runs against EACH source on its own,
-# with no topic filter, so each site's past-year publications are covered
-# regardless of subject. Add a line to widen what counts as a publication.
-annual_queries:
-  - "report"
-  - "policy brief"
-  - "policy recommendations"
-  - "research study findings"
-  - "legislation proposal testimony"
-  - "data analysis publication"
+# Sub-goals for each objective (from the Vault's "Objectives + Targets/Barriers"
+# tab). Used by EVERY scan to decide what's in scope and to fill Target /
+# Barrier. The annual scan also searches each source separately once per
+# sub-goal, using q as the search words. Edit q to change what's searched.
+targets:
+  - {id: "1.1", objective: 1, q: "child care access affordability quality",
+     target: "Ensure that families have access to safe, affordable, high-quality childcare"}
+  - {id: "1.2", objective: 1, q: "paid family leave parent accommodations workplace school",
+     target: "Ensure that parents have access to appropriate accommodations and support within their schools and workplaces"}
+  - {id: "1.3", objective: 1, q: "cost of raising children family affordability tax credit",
+     target: "Ensure that families can afford to have and raise children"}
+  - {id: "1.4", objective: 1, q: "parent education home visiting early childhood development",
+     target: "Ensure that parents have access to developmental educational resources and support to be effective"}
+  - {id: "1.5", objective: 1, q: "caregiving caregivers care work compensation",
+     target: "Ensure that the work of caregiving is valued and rewarded in society"}
+  - {id: "2.1", objective: 2, q: "postsecondary technical education apprenticeship workforce training",
+     target: "Ensure that individuals have access to ongoing opportunities for education beyond K-12 (whether through work-based learning, technical education, or higher education)."}
+  - {id: "2.2", objective: 2, q: "wages employment working conditions women workers",
+     target: "Ensure that individuals have opportunities for productive employment, in decent working conditions, at fair wages (focus on women, underrepresented/marginal groups)"}
+  - {id: "2.3", objective: 2, q: "homeownership retirement savings wealth building",
+     target: "Ensure that individuals have opportunities to invest and build wealth (e.g., through home-ownership, retirement)"}
+  - {id: "3.1", objective: 3, q: "K-12 school funding equity",
+     target: "Ensure that K-12 public education is sufficiently and equitably funded"}
+  - {id: "3.2", objective: 3, q: "parent family engagement in schools",
+     target: "Ensure that parents/caregivers are meaningfully included in their child(ren)'s education"}
+  - {id: "3.3", objective: 3, q: "teacher recruitment retention pay school counselors staff",
+     target: "Ensure that Utah can attract, retain, and develop high-quality teachers, staff -- including academic counselors/behavioral health professions --, and administrators in the K-12 public education system"}
+  - {id: "3.4", objective: 3, q: "curriculum career readiness life skills high school students",
+     target: "Ensure that educational curriculum and program offerings prepare students to succeed both professionally and personally after graduation"}
+  - {id: "4.1", objective: 4, q: "housing affordability homelessness utilities",
+     target: "Ensure that all Utahns have access to safe shelter (i.e., housing and utilities)"}
+  - {id: "4.2", objective: 4, q: "transportation public transit access affordability",
+     target: "Ensure that all Utahns have access to affordable, reliable transportation"}
+  - {id: "4.3", objective: 4, q: "food insecurity SNAP hunger basic needs",
+     target: "Ensure that all Utahns have access to food and essential household goods"}
+  - {id: "5.1", objective: 5, q: "criminal justice reform courts incarceration",
+     target: "Ensure that the justice system protects dignity, human rights, and justice for all"}
+  - {id: "5.2", objective: 5, q: "legislative process ethics transparency",
+     target: "Ensure that the legislative process promotes ethical and effective policies that reflect the voice of the people"}
+  - {id: "5.3", objective: 5, q: "civic engagement voting democracy",
+     target: "Ensure that individuals have opportunities for meaningful civic engagement and that democracy is strengthened"}
+  - {id: "5.4", objective: 5, q: "access to public services libraries hospitals",
+     target: "Ensure that individuals have access to public institutions and services (e.g., libraries, hospitals)"}
+  - {id: "5.5", objective: 5, q: "foster care child welfare protective services",
+     target: "Ensure that the foster care system / (Child protective services) centers on protecting the rights and safety of children in care"}
+  - {id: "6.1", objective: 6, q: "public health prevention healthy environments wellbeing",
+     target: "Ensure that all Utahns have access to safe environments and resources that support physical and mental health / wellbeing (preventative)"}
+  - {id: "6.2", objective: 6, q: "health care access mental health services Medicaid",
+     target: "Ensure that all Utahns have access to safe, high-quality, physical and mental health care services"}
+  - {id: "7.1", objective: 7, q: "victim services domestic violence sexual assault trafficking support",
+     target: "Ensure that (potential) victims of abuse, violence, and exploitation have access to robust preventive and rehabilitative supports to prevent victimization in the first place and to enable future safety/recovery"}
+  - {id: "7.2", objective: 7, q: "abuse violence prevention perpetrator intervention",
+     target: "Ensure that robust preventative measures are in place to prevent (potential) perpetrators of abuse, violence, and exploitation from committing these crimes in the first place"}
 
 sources:
   # Tier 1 — Utah government & data

@@ -198,6 +198,24 @@ def selected_objectives(cfg, objs) -> list[str]:
     return [o for o in cfg["objectives"] if int(o.split(".")[0]) in objs]
 
 
+def objectives_text(cfg, objs) -> str:
+    """In-scope objectives with their sub-goals, for the extraction prompt."""
+    out = []
+    for o in selected_objectives(cfg, objs):
+        n = int(o.split(".")[0])
+        out.append(o)
+        out += [f"  {t['id']} {t['target']}" for t in cfg.get("targets", [])
+                if t["objective"] == n]
+    return "\n".join(out)
+
+
+def target_label(cfg, tid) -> str:
+    for t in cfg.get("targets", []):
+        if t["id"] == str(tid).strip():
+            return f"{t['id']} {t['target']}"
+    return str(tid or "")
+
+
 # ---------------------------------------------------------------- Tavily
 
 def tavily_search(query: str, domains=None, days=60, max_results: int = 5):
@@ -230,12 +248,14 @@ def sheets_service():
 
 
 def read_existing_summaries(svc) -> list[str]:
-    """Idea summaries from the Policies tab plus every prior scan/staging tab."""
+    """Idea summaries from the Policies, New Policy Ideas and CUT tabs plus
+    every prior scan/staging tab (column D in all of them)."""
     meta = svc.get(spreadsheetId=VAULT_ID).execute()
     titles = [s["properties"]["title"] for s in meta["sheets"]]
     summaries = []
     for title in titles:
-        if title != "Policies" and not title.startswith(("Staging", "Scan —")):
+        if (title not in ("Policies", "New Policy Ideas", "CUT")
+                and not title.startswith(("Staging", "Scan —"))):
             continue
         vals = svc.values().get(
             spreadsheetId=VAULT_ID, range=f"'{title}'!D2:D").execute()
@@ -290,14 +310,16 @@ def search_plan(cfg, settings) -> list[tuple[str, list[str]]]:
     every source separately, so no site competes with another for results."""
     tiers = settings["tiers"]
     srcs = [src for src in cfg["sources"] if tiers is None or src["tier"] in tiers]
+    objs = settings["objectives"]
     if settings["mode"] == "annual":
+        qs = [t["q"] for t in cfg["targets"]
+              if objs is None or t["objective"] in objs]
+        qs += [f"Utah {t}" for t in settings["topics"]]
         return [(f"{src['hint']} {q}" if src.get("hint") else q, [src["domain"]])
-                for src in srcs if src.get("annual", True)
-                for q in cfg["annual_queries"] + [f"Utah {t}" for t in settings["topics"]]]
+                for src in srcs if src.get("annual", True) for q in qs]
     groups = {}  # one search per tier, so each tier gets its own 20 results
     for src in srcs:
         groups.setdefault(src["tier"], []).append(src["domain"])
-    objs = settings["objectives"]
     queries = [q["q"] for q in cfg["queries"]
                if objs is None or not q.get("objectives")
                or set(q["objectives"]) & set(objs)]
@@ -322,7 +344,7 @@ def gather_candidates(cfg, settings) -> list[dict]:
     if not hits:
         return []
 
-    objectives = "\n".join(selected_objectives(cfg, objs))
+    objectives = objectives_text(cfg, objs)
     ideas = []
     for i in range(0, len(hits), BATCH):
         blob = "\n\n".join(
@@ -416,7 +438,7 @@ def build_rows(candidates, cfg) -> list[dict]:
     return rows
 
 
-def short_rows(candidates) -> list[dict]:
+def short_rows(candidates, cfg) -> list[dict]:
     """Annual scan: a row from what extraction and the Utah-law check already
     found, with no extra Claude call. Cost/impact left for picked ideas."""
     rows = []
@@ -424,6 +446,7 @@ def short_rows(candidates) -> list[dict]:
         v = c.get("verification", {})
         rows.append({
             "objective": c.get("objective", ""),
+            "target_barrier": target_label(cfg, c.get("target", "")),
             "idea_summary": c["idea"],
             "idea_source": " — ".join(x for x in (c.get("source_label", ""),
                                                   c.get("source_url", "")) if x),
@@ -539,7 +562,7 @@ def main() -> int:
     n_raw = len(candidates)
     candidates = dedupe(candidates, existing)
     live, dead = verify(candidates)
-    rows = rank(short_rows(live) if settings["short_rows"] else build_rows(live, cfg))
+    rows = rank(short_rows(live, cfg) if settings["short_rows"] else build_rows(live, cfg))
     if settings["max_ideas"] is not None:
         rows = rows[: settings["max_ideas"]]
 

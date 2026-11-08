@@ -1,8 +1,9 @@
 name: Annual Scan (past year)
 
 # Manual only — never runs on a schedule. Searches every research, government
-# and advocacy source in sources.yaml SEPARATELY for its past-year
-# publications on any topic (news sites and le.utah.gov are left out), stages
+# and advocacy source in sources.yaml SEPARATELY, once per objective sub-goal
+# (the `targets` list), for past-year publications (news sites and
+# le.utah.gov are left out). Ideas that advance no sub-goal are skipped. Stages
 # every idea that survives dedupe + the Utah-law check (no cap) as a short row
 # with cost/impact left blank, and leaves the already-law candidates out.
 # Shares scan.py with the monthly Policy Scan.

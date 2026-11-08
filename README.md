@@ -44,7 +44,7 @@ Blank boxes = run with the Scan Settings tab as-is.
 
 ### 3. Annual scan (past year, every source)
 
-Actions tab → **Annual Scan (past year)** → **Run workflow**. Unlike the monthly scan, it does not search by topic. It searches **each** research, government and advocacy source in `sources.yaml` on its own for its past-year publications on any subject, using the `annual_queries` list (report, policy brief, recommendations, etc.). News sites and le.utah.gov are left out (`annual: false` in `sources.yaml`).
+Actions tab → **Annual Scan (past year)** → **Run workflow**. It searches **each** research, government and advocacy source in `sources.yaml` on its own, once for **each sub-goal** of TPP's 7 objectives (the `targets` list in `sources.yaml`, copied from the Vault's "Objectives + Targets/Barriers" tab), for past-year publications. Only ideas that advance one of those sub-goals are kept, and each row's Target / Barrier names the sub-goal. News sites and le.utah.gov are left out (`annual: false` in `sources.yaml`). If the sub-goals change in the Vault, update `targets` to match.
 
 - Stages **every** idea that survives dedupe and the Utah-law check (no cap), ranked.
 - Rows are **short**: idea, objective, source, Utah-law check and rank. Estimated Cost and # People Affected say "Not estimated" — fill those in for the ideas you pick.
