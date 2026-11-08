@@ -7,8 +7,9 @@ Every run:
 1. **Searches** ~30 sources (Utah agencies, research institutes, advocacy orgs, national think tanks, Utah news) via the Tavily API for policy-relevant publications
 2. **Extracts** candidate policy ideas from the results (Claude API)
 3. **Deduplicates** against every existing entry in the Policy Vault Google Sheet
-4. **Verifies** each surviving candidate against *current Utah law* — historically ~40% of promising candidates turn out to already be Utah statute, so this step is non-negotiable
-5. **Writes** the survivors as ranked, fully-formatted rows into a **new dated tab** in the Policy Vault, named like `Scan — Obj 3 — Jul 13 2026`, with a SCAN DETAILS block underneath showing the settings used and which candidates were killed as already-law
+4. **Verifies** each surviving candidate against *current Utah law* (one general web search plus one limited to le.utah.gov) — historically ~40% of promising candidates turn out to already be Utah statute, so this step is non-negotiable
+5. **Builds full Vault rows** — Utah Code and past attempts only from what the le.utah.gov/web research found; cost estimates from one extra search for fiscal notes and other states' comparable programs; impact from the Vault's **Utah Statistics** tab; each estimate shows its math, cites sources and ends with a confidence rating (Conf: LOW/MED/HIGH). Target / Barrier and types of change and cost reuse the values already in the Policies tab.
+6. **Adds** the ranked rows to the running **Staging** tab, in the Policies layout, with the feasibility-screening columns left blank for the team, and records the run in the **Scan Log** tab (settings, counts, and which ideas were removed as already Utah law)
 
 It runs automatically on the **1st of each month**, and anyone with access to this repo can run it on demand. If a run breaks, GitHub emails the account owner a failure notice.
 
@@ -42,19 +43,21 @@ For a one-time scan **right now** without touching the standing settings:
 
 Blank boxes = run with the Scan Settings tab as-is.
 
-### 3. Annual scan (past year, every source)
+### 3. Annual scan (past year, every source) → pick → Full Treatment
 
-Actions tab → **Annual Scan (past year)** → **Run workflow**. It searches **each** research, government and advocacy source in `sources.yaml` on its own, once for **each sub-goal** of TPP's 7 objectives (the `targets` list in `sources.yaml`, copied from the Vault's "Objectives + Targets/Barriers" tab), for past-year publications. Only ideas that advance one of those sub-goals are kept, and each row's Target / Barrier names the sub-goal. News sites and le.utah.gov are left out (`annual: false` in `sources.yaml`). If the sub-goals change in the Vault, update `targets` to match.
+**Step 1 — Annual Scan.** Actions tab → **Annual Scan (past year)** → **Run workflow**. It searches **each** research, government and advocacy source in `sources.yaml` on its own, once for **each sub-goal** of TPP's 7 objectives (the `targets` list in `sources.yaml`, copied from the Vault's "Objectives + Targets/Barriers" tab), for past-year publications. Only ideas that advance one of those sub-goals are kept. News sites and le.utah.gov are left out (`annual: false`). Expect a few hours. Every idea that survives dedupe and the Utah-law check is listed, ranked, in a new tab named like `Annual Scan — Nov 08 2026`: rank, objective, sub-goal, idea, source, the Utah-law check. No cost/impact estimates yet. Already-law ideas are only counted in the Scan Log, not listed. It ignores the Scan Settings tab except **Extra search topics** — clear that cell first if you don't want those.
 
-- Stages **every** idea that survives dedupe and the Utah-law check (no cap), ranked.
-- Rows are **short**: idea, objective, source, Utah-law check and rank. Estimated Cost and # People Affected say "Not estimated" — fill those in for the ideas you pick.
-- Does **not** list the already-law candidates (the Funnel line still counts them).
-- Results land in a tab named like `Scan — Annual — All objectives — Nov 05 2026`. Expect it to take a few hours.
-- Never runs on its own. Ignores the Scan Settings tab's objectives, tiers, window and cap, but **does** add anything in **Extra search topics**, so clear that cell first if you don't want those.
+**Step 2 — Pick.** Type `Y` in the **Full treatment? (Y)** column next to the ideas you want.
 
-### Reading the results
+**Step 3 — Full Treatment.** Actions tab → **Full Treatment (annual picks)** → **Run workflow**. Each picked idea is re-checked against Utah law, gets a full row (same rules as the monthly scan), and is added to **Staging**. Its pick cell changes to `Done <date>` (or says why it wasn't staged), so you can run it again any time without repeats.
 
-Each scan creates one new tab in the Vault. The tab name tells you the date and scan type. Rows are ranked best-first (rank + rationale in the Notes column), formatted to match the Policies tab so rows can be promoted by copy-paste, with `ID #` left blank for Marin to assign. Below the rows, the SCAN DETAILS block lists the candidates that were **killed because they're already Utah law** — worth skimming, since it's the main way the scanner earns trust.
+## Reading the results
+
+- **Staging** — every new full row (monthly scan and annual picks), ranked within its run (Notes column), `Team Member(s)` = `auto-scan <date>`, `ID #` blank. The team screens feasibility here (Status, Why Passed / Parked, Package Fit, etc. — the scanner never fills those), then copies finished rows to Policies.
+- **Scan Log** — one row per run: settings used, the counts at each step, and (monthly only) the ideas removed as already Utah law with the reason. Worth skimming, since it's the main way the scanner earns trust.
+- **Annual Scan — <date>** — the annual list to pick from.
+
+Duplicates are checked against Policies, New Policy Ideas, CUT, Staging and every annual/scan tab, so an idea listed once (even if not picked) won't come back as new.
 
 ---
 
@@ -74,7 +77,7 @@ And under **Variables** (same page, "Variables" tab):
 
 | Variable | Value |
 |---|---|
-| `VAULT_SPREADSHEET_ID` | `1rWN91-oQ5UIsh1jTFAtA_xV19HtzbdcJ9-kONpDVLk0` (CURRENT Policy Vault; the July 2026 scans ran against the OG Policy Vault, `1V2drIfK1Gn4pb5i_Uj5S7f4SV4jiV227Wt6JV7ouXEE`) |
+| `VAULT_SPREADSHEET_ID` | `1QRDMnU11uf9qBqfPXOXixl7puEcqYLywB8xJ-GDvwLw` (CURRENT Policy Vault - TPP Owned; the July 2026 scans ran against the OG Policy Vault, `1V2drIfK1Gn4pb5i_Uj5S7f4SV4jiV227Wt6JV7ouXEE`) |
 
 ### 2. Google service account (lets the script read settings and write results)
 
@@ -87,7 +90,7 @@ And under **Variables** (same page, "Variables" tab):
 
 ### 3. Test it
 
-Actions tab → **Policy Scan** → **Run workflow** (leave the boxes blank). Watch the log; first run takes ~10–15 minutes. Check the Vault for the new dated tab.
+Actions tab → **Policy Scan** → **Run workflow** (leave the boxes blank). Watch the log; first run takes ~10–15 minutes. Check the Vault's Staging and Scan Log tabs.
 
 ---
 
@@ -98,9 +101,10 @@ Actions tab → **Policy Scan** → **Run workflow** (leave the boxes blank). Wa
 | `scanner/scan.py` | The whole pipeline |
 | `scanner/sources.yaml` | The source registry and search queries — **edit this to add/remove sources**, no code changes needed |
 | `scanner/prompts.py` | The Claude prompts (extraction, dedupe, verification, row-building, ranking) |
-| `scanner/utah_statistics.csv` | Utah baseline stats, so cost/impact figures cite real numbers |
+| `scanner/utah_statistics.csv` | Backup copy of Utah baseline stats, used only if the Vault's **Utah Statistics** tab can't be read |
 | `.github/workflows/monthly-scan.yml` | The schedule (cron, currently 1st of month ~8 AM Mountain) and the Run-workflow button |
 | `.github/workflows/annual-scan.yml` | The manual annual scan (past year, every source separately) |
+| `.github/workflows/full-treatment.yml` | Builds full rows for annual-scan ideas marked Y and adds them to Staging |
 
 ## Changing things
 
@@ -111,9 +115,9 @@ Actions tab → **Policy Scan** → **Run workflow** (leave the boxes blank). Wa
 
 ## Design principles (read before "improving" it)
 
-1. **The Google Sheet is the single source of truth.** This scanner only ever *adds* dated scan tabs; it never edits the main Policies tab. Humans promote rows from a scan tab into the vault.
+1. **The Google Sheet is the single source of truth.** This scanner only adds rows to Staging, Scan Log and Annual Scan tabs (and marks annual picks done); it never edits the Policies tab. Humans screen rows in Staging and promote them into the vault.
 2. **Verification beats volume.** An idea that's already Utah law staged into the vault costs the team credibility with legislators. The verification step deliberately kills a large share of candidates. 5 verified ideas > 25 unverified ones.
-3. **Never guess numbers.** Every cost/impact figure must show its math and source in the row. Anything unverifiable gets an explicit `FLAG: verify X` note instead of a made-up number.
+3. **Never guess numbers.** Every cost/impact figure must show its math, source and confidence rating in the row. Anything unverifiable gets an explicit `FLAG: verify X` note instead of a made-up number.
 4. **Settings are data, not code.** Everything Marin needs to change lives in the Scan Settings tab or the Run-workflow boxes. Nothing she can type there can break a scan.
 
 ## History

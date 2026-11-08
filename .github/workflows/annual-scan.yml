@@ -3,10 +3,11 @@ name: Annual Scan (past year)
 # Manual only — never runs on a schedule. Searches every research, government
 # and advocacy source in sources.yaml SEPARATELY, once per objective sub-goal
 # (the `targets` list), for past-year publications (news sites and
-# le.utah.gov are left out). Ideas that advance no sub-goal are skipped. Stages
-# every idea that survives dedupe + the Utah-law check (no cap) as a short row
-# with cost/impact left blank, and leaves the already-law candidates out.
-# Shares scan.py with the monthly Policy Scan.
+# le.utah.gov are left out). Ideas that advance no sub-goal are skipped. Every
+# idea that survives dedupe + the Utah-law check is listed, ranked, in a new
+# "Annual Scan — <date>" tab with a "Full treatment? (Y)" column. Mark the ones
+# you want, then run the "Full Treatment" workflow. Already-law ideas are only
+# counted in the Scan Log, not listed.
 on:
   workflow_dispatch: {}
 
@@ -38,5 +39,4 @@ jobs:
           SCAN_LABEL: "Annual"
           SCAN_SHOW_KILLED: "false"
           SCAN_MODE: "annual"
-          SCAN_SHORT_ROWS: "true"
         run: python scan.py

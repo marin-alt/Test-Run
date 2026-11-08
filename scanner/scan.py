@@ -44,6 +44,14 @@ MODEL_SMART = "claude-sonnet-5"            # dedupe, row-building, ranking
 
 VAULT_ID = os.environ.get("VAULT_SPREADSHEET_ID", "")
 SETTINGS_TAB = "Scan Settings"
+STAGING_TAB = "Staging"      # one running tab; the team screens rows here
+LOG_TAB = "Scan Log"         # one row per run: settings, counts, already-law list
+STATS_TAB = "Utah Statistics"
+ANNUAL_PREFIX = "Annual Scan —"
+PICK_HEADER = "Full treatment? (Y)"
+ANNUAL_HEADERS = [PICK_HEADER, "Rank", "Objective", "Sub-goal",
+                  "Idea Summary", "Source", "Source Link",
+                  "Utah-law check", "Utah Code", "Rank rationale"]
 
 VAULT_HEADERS = [
     "ID #", "Objective", "Target / Barrier", "Idea Summary (1-2 Sentences)",
@@ -69,10 +77,7 @@ DEFAULT_SETTINGS = {
     "show_killed": True,  # list already-law candidates in SCAN DETAILS
     "mode": "topic",      # "topic" = topic queries per tier (monthly);
                           # "annual" = every annual_queries line per source
-    "short_rows": False,  # True = skip cost/impact estimates (annual scan)
 }
-
-NOT_ESTIMATED = "Not estimated (annual scan) — fill in if this idea is picked"
 
 WORKERS = 4  # parallel Claude/Tavily calls in verify + row-building
 BATCH = 25   # items per Claude call in extraction and dedupe
@@ -188,7 +193,7 @@ def settings_summary(s) -> str:
             f"tiers={'all' if s['tiers'] is None else s['tiers']}, "
             f"window={s['days']}d, max={s['max_ideas'] or 'no cap'}"
             + (", mode=annual (every source separately)" if s["mode"] == "annual" else "")
-            + (", short rows" if s["short_rows"] else "")
+
             + (f", topics={s['topics']}" if s["topics"] else ""))
 
 
@@ -248,59 +253,123 @@ def sheets_service():
 
 
 def read_existing_summaries(svc) -> list[str]:
-    """Idea summaries from the Policies, New Policy Ideas and CUT tabs plus
-    every prior scan/staging tab (column D in all of them)."""
-    meta = svc.get(spreadsheetId=VAULT_ID).execute()
-    titles = [s["properties"]["title"] for s in meta["sheets"]]
+    """Idea summaries from Policies, New Policy Ideas, CUT, Staging and every
+    scan tab — found by the header that starts "Idea Summary"."""
     summaries = []
-    for title in titles:
+    for title in tab_titles(svc):
         if (title not in ("Policies", "New Policy Ideas", "CUT")
-                and not title.startswith(("Staging", "Scan —"))):
+                and not title.startswith(("Staging", "Scan —", ANNUAL_PREFIX))):
             continue
-        vals = svc.values().get(
-            spreadsheetId=VAULT_ID, range=f"'{title}'!D2:D").execute()
-        summaries += [row[0] for row in vals.get("values", []) if row and row[0]]
+        rows = read_rows(svc, title)
+        heads = [str(h).strip().lower() for h in (rows[0] if rows else [])]
+        col = next((i for i, h in enumerate(heads) if h.startswith("idea summary")), 3)
+        summaries += [r[col] for r in rows[1:] if len(r) > col and r[col].strip()]
     log(f"loaded {len(summaries)} existing vault/staging summaries")
     return summaries
 
 
-def write_results_tab(svc, rows, settings, killed, funnel: str,
-                      headers=VAULT_HEADERS) -> str:
-    today = dt.date.today()
-    base = f"Scan — {scan_label(settings)} — {today.strftime('%b %d %Y')}"
-    meta = svc.get(spreadsheetId=VAULT_ID).execute()
-    taken = {s["properties"]["title"] for s in meta["sheets"]}
-    title, n = base, 2
+def tab_titles(svc) -> list[str]:
+    return [t["properties"]["title"]
+            for t in svc.get(spreadsheetId=VAULT_ID).execute()["sheets"]]
+
+
+def read_rows(svc, title, rng="A1:AZ") -> list[list[str]]:
+    return svc.values().get(spreadsheetId=VAULT_ID,
+                            range=f"'{title}'!{rng}").execute().get("values", [])
+
+
+def ensure_tab(svc, title, headers) -> list[str]:
+    """Create the tab with a header row if it's missing; return its headers."""
+    if title in tab_titles(svc):
+        rows = read_rows(svc, title, "A1:AZ1")
+        if rows and any(rows[0]):
+            return rows[0]
+    else:
+        svc.batchUpdate(spreadsheetId=VAULT_ID, body={"requests": [
+            {"addSheet": {"properties": {"title": title}}}]}).execute()
+    svc.values().update(spreadsheetId=VAULT_ID, range=f"'{title}'!A1",
+                        valueInputOption="RAW", body={"values": [headers]}).execute()
+    return headers
+
+
+def append_rows(svc, title, rows) -> None:
+    if rows:
+        svc.values().append(spreadsheetId=VAULT_ID, range=f"'{title}'!A1",
+                            valueInputOption="RAW", insertDataOption="INSERT_ROWS",
+                            body={"values": rows}).execute()
+
+
+def write_log(svc, scan_name, settings, funnel, killed) -> None:
+    headers = ["Date", "Scan", "Settings used", "Funnel",
+               "Removed as already Utah law (idea — why)"]
+    ensure_tab(svc, LOG_TAB, headers)
+    gone = ""
+    if killed and settings["show_killed"]:
+        gone = "\n".join(f"• {k['idea']} — {k['verification'].get('reasoning', '')}"
+                         for k in killed)[:49000]
+    append_rows(svc, LOG_TAB, [[dt.date.today().isoformat(), scan_name,
+                                settings_summary(settings), funnel, gone]])
+
+
+def stage_rows(svc, rows) -> None:
+    """Append full rows to the running Staging tab, in the Policies layout."""
+    headers = ensure_tab(svc, STAGING_TAB, read_policy_headers(svc))
+    append_rows(svc, STAGING_TAB, to_sheet_rows(rows, headers))
+    log(f"added {len(rows)} rows to '{STAGING_TAB}'")
+
+
+def write_annual_tab(svc, rows) -> None:
+    base = f"{ANNUAL_PREFIX} {dt.date.today().strftime('%b %d %Y')}"
+    taken, title, n = set(tab_titles(svc)), base, 2
     while title in taken:
         title, n = f"{base} ({n})", n + 1
+    ensure_tab(svc, title, ANNUAL_HEADERS)
+    append_rows(svc, title, [[
+        "", r["_rank"] if r["_rank"] != 999 else "", r.get("objective", ""),
+        r.get("target_barrier", ""), r.get("idea_summary", ""),
+        r.get("source_label", ""), r.get("source_url", ""),
+        r.get("law_check", ""), r.get("utah_code", ""), r.get("notes", "")]
+        for r in rows])
+    log(f"wrote {len(rows)} ideas to '{title}'")
 
-    resp = svc.batchUpdate(
-        spreadsheetId=VAULT_ID,
-        body={"requests": [{"addSheet": {"properties": {"title": title}}}]},
-    ).execute()
-    gid = resp["replies"][0]["addSheet"]["properties"]["sheetId"]
 
-    details = [
-        [""],
-        ["SCAN DETAILS"],
-        ["Date", today.isoformat()],
-        ["Scan type", scan_label(settings)],
-        ["Settings used", settings_summary(settings)],
-        ["Funnel", funnel],
-    ]
-    if killed and settings["show_killed"]:
-        details.append(
-            ["Killed candidates (already Utah law or dead) — kept so we don't re-chase them:"])
-        details += [[f"• {k['idea']}", k["verification"]["reasoning"]] for k in killed]
+def read_utah_stats(svc) -> str:
+    """The Vault's Utah Statistics tab (metric, value, year, source);
+    falls back to the bundled CSV if the tab can't be read."""
+    if svc:
+        try:
+            rows = read_rows(svc, STATS_TAB, "A1:D500")
+            if rows:
+                return "\n".join(" | ".join(r) for r in rows if r)
+        except Exception as e:
+            log(f"WARN could not read '{STATS_TAB}' tab ({e}) — using bundled CSV")
+    return (STATS_FILE.read_text(encoding="utf-8", errors="replace")
+            if STATS_FILE.exists() else "(no Utah statistics available)")
 
-    svc.values().update(
-        spreadsheetId=VAULT_ID, range=f"'{title}'!A1",
-        valueInputOption="RAW",
-        body={"values": [headers] + rows + details},
-    ).execute()
-    url = f"https://docs.google.com/spreadsheets/d/{VAULT_ID}/edit?gid={gid}#gid={gid}"
-    log(f"wrote {len(rows)} rows to '{title}' -> {url}")
-    return url
+
+def vault_options(svc) -> dict:
+    """Values the team already uses in Policies (Target / Barrier, Type(s) of
+    Change, Type(s) of Cost), so new rows use the same vocabulary. Only values
+    used at least twice count, to skip one-off free text."""
+    out = {"target_barrier": [], "type_of_change": [], "type_of_cost": []}
+    if not svc:
+        return out
+    try:
+        rows = read_rows(svc, "Policies", "A1:AZ")
+    except Exception as e:
+        log(f"WARN could not read Policies values ({e})")
+        return out
+    plan = column_plan(rows[0]) if rows else []
+    for key in out:
+        if key not in plan:
+            continue
+        i, counts = plan.index(key), {}
+        for r in rows[1:]:
+            v = r[i].strip() if len(r) > i else ""
+            if v:
+                counts[v] = counts.get(v, 0) + 1
+        out[key] = sorted(v for v, c in counts.items() if c >= 2)[:80]
+    return out
 
 
 # ---------------------------------------------------------------- pipeline stages
@@ -386,17 +455,31 @@ def dedupe(candidates, existing) -> list[dict]:
     return keep
 
 
+def research_blob(results, label) -> str:
+    return "\n\n".join(
+        f"[{label}] [{r.get('url')}] {r.get('title')}\n{r.get('content', '')[:800]}"
+        for r in results)
+
+
 def verify_one(c) -> dict:
+    """Utah-law check: one general web search plus one limited to
+    le.utah.gov (bills and code). The results are kept for row-building, so
+    Utah Code and Past Attempts come from what was actually found."""
+    q = c["idea"][:150]
     try:
-        results = tavily_search(f"Utah law status: {c['idea'][:150]}",
-                                days=None, max_results=5)
-        blob = "\n\n".join(
-            f"[{r.get('url')}] {r.get('title')}\n{r.get('content', '')[:800]}"
-            for r in results)
+        general = tavily_search(f"Utah law status: {q}", days=None, max_results=5)
+        try:
+            leg = tavily_search(q, domains=["le.utah.gov"], days=None, max_results=5)
+        except Exception as e:
+            log(f"WARN le.utah.gov search failed: {e}")
+            leg = []
+        c["research"] = (research_blob(leg, "le.utah.gov") + "\n\n"
+                         + research_blob(general, "web"))
         v = ask_claude_json(MODEL_FAST, prompts.VERIFY.format(
-            idea=c["idea"], results=blob))
+            idea=c["idea"], results=c["research"]))
     except Exception as e:
         log(f"WARN verification errored, treating as uncertain: {e}")
+        c.setdefault("research", "")
         v = {"status": "uncertain", "reasoning": f"verification error: {e}",
              "reframed_idea": c["idea"], "utah_law_cite": ""}
     c["verification"] = v
@@ -418,18 +501,35 @@ def verify(candidates) -> tuple[list[dict], list[dict]]:
     return live, dead
 
 
-def build_rows(candidates, cfg) -> list[dict]:
-    # errors="replace" so a stray non-UTF-8 byte in the CSV can't crash a scan
-    stats = (STATS_FILE.read_text(encoding="utf-8", errors="replace")
-             if STATS_FILE.exists() else "(stats file missing)")
+def build_rows(candidates, stats, options) -> list[dict]:
+    """Full Vault rows. Each idea gets one more search for cost comparables
+    (fiscal notes, other states' programs) before Claude writes the row."""
+    opts = "\n".join(f"{k}: " + ("; ".join(v) if v else "(none found — free text)")
+                     for k, v in options.items())
 
     def one(c):
         try:
-            return ask_claude_json(MODEL_SMART, prompts.BUILD_ROW.format(
+            try:
+                cost = tavily_search(f"fiscal note cost estimate state program {c['idea'][:150]}",
+                                     days=None, max_results=5)
+            except Exception as e:
+                log(f"WARN cost search failed: {e}")
+                cost = []
+            row = ask_claude_json(MODEL_SMART, prompts.BUILD_ROW.format(
                 idea=c["idea"], objective=c.get("objective", ""),
                 source_url=c.get("source_url", ""),
                 verification=json.dumps(c.get("verification", {})),
-                stats=stats[:8000], barriers="(use vault dropdown values)"))
+                law_research=c.get("research", "") or "(none)",
+                cost_research=research_blob(cost, "cost") or "(none)",
+                stats=stats[:20000], options=opts))
+            if isinstance(row, dict):
+                row["_key"] = c.get("_key")
+            if isinstance(row, dict):
+                row.setdefault("objective", c.get("objective", ""))
+                row["more_info"] = " ".join(x for x in (
+                    row.get("more_info", ""),
+                    f"Utah-law check: {c.get('verification', {}).get('reasoning', '')}") if x)
+            return row
         except Exception as e:
             log(f"WARN row build failed, skipping: {e}")
             return None
@@ -440,23 +540,17 @@ def build_rows(candidates, cfg) -> list[dict]:
 
 
 def short_rows(candidates, cfg) -> list[dict]:
-    """Annual scan: a row from what extraction and the Utah-law check already
-    found, with no extra Claude call. Cost/impact left for picked ideas."""
-    rows = []
-    for c in candidates:
-        v = c.get("verification", {})
-        rows.append({
-            "objective": c.get("objective", ""),
-            "target_barrier": target_label(cfg, c.get("target", "")),
-            "idea_summary": c["idea"],
-            "idea_source": " — ".join(x for x in (c.get("source_label", ""),
-                                                  c.get("source_url", "")) if x),
-            "utah_code": v.get("utah_law_cite", ""),
-            "more_info": f"Utah-law check: {v.get('reasoning', '')}",
-            "estimated_cost": NOT_ESTIMATED,
-            "people_affected": NOT_ESTIMATED,
-        })
-    return rows
+    """Annual scan: what extraction and the Utah-law check found — no extra
+    searches or Claude calls. Full treatment happens later for picked ideas."""
+    return [{
+        "objective": c.get("objective", ""),
+        "target_barrier": target_label(cfg, c.get("target", "")),
+        "idea_summary": c["idea"],
+        "source_label": c.get("source_label", ""),
+        "source_url": c.get("source_url", ""),
+        "utah_code": c.get("verification", {}).get("utah_law_cite", ""),
+        "law_check": c.get("verification", {}).get("reasoning", ""),
+    } for c in candidates]
 
 
 def rank(rows) -> list[dict]:
@@ -497,7 +591,7 @@ COLUMN_FIELDS = [
     ("idea source", "idea_source"), ("utah code", "utah_code"),
     ("past attempts", "past_attempts"), ("more info", "more_info"),
     ("type(s) of change", "type_of_change"), ("type(s) of cost", "type_of_cost"),
-    ("cost notes", "cost_notes"), ("team member", "=auto-scan"),
+    ("cost notes", "cost_notes"), ("team member", "team_member"),
     ("estimated cost", "estimated_cost"), ("cost explanation", "cost_explanation"),
     ("impact / population", "impact_explanation"), ("impact - #", "people_affected"),
     ("# people", "people_affected"), ("other follow up", "follow_up"),
@@ -544,6 +638,73 @@ def to_sheet_rows(rows, headers=VAULT_HEADERS) -> list[list[str]]:
 
 # ---------------------------------------------------------------- main
 
+def finish_rows(rows) -> list[dict]:
+    stamp = f"auto-scan {dt.date.today().isoformat()}"
+    for r in rows:
+        r["team_member"] = stamp
+    return rows
+
+
+def col_letter(i: int) -> str:
+    out = ""
+    i += 1
+    while i:
+        i, rem = divmod(i - 1, 26)
+        out = chr(65 + rem) + out
+    return out
+
+
+def full_treatment(svc, cfg, settings) -> int:
+    """Give full rows to every annual-scan idea marked Y in the
+    "Full treatment? (Y)" column, add them to Staging, and mark them done."""
+    picks = []
+    for title in tab_titles(svc):
+        if not title.startswith(ANNUAL_PREFIX):
+            continue
+        rows = read_rows(svc, title)
+        if not rows:
+            continue
+        idx = {str(h).strip(): i for i, h in enumerate(rows[0])}
+        if PICK_HEADER not in idx:
+            continue
+        get = lambda r, h: r[idx[h]].strip() if h in idx and len(r) > idx[h] else ""
+        for n, r in enumerate(rows[1:], start=2):
+            if get(r, PICK_HEADER).upper() in ("Y", "YES", "X"):
+                key = (title, n)
+                picks.append({"_key": key, "idea": get(r, "Idea Summary"),
+                              "objective": get(r, "Objective"),
+                              "source_url": get(r, "Source Link"),
+                              "source_label": get(r, "Source"),
+                              "_cell": f"'{title}'!{col_letter(idx[PICK_HEADER])}{n}"})
+    picks = [p for p in picks if p["idea"]]
+    log(f"full treatment: {len(picks)} ideas marked Y")
+    if not picks:
+        return 0
+
+    live, dead = verify(picks)
+    rows = finish_rows(rank(build_rows(live, read_utah_stats(svc), vault_options(svc))))
+    stage_rows(svc, rows)
+
+    today = dt.date.today().isoformat()
+    done = {r.get("_key") for r in rows}
+    marks = []
+    for p in picks:
+        if p in dead:
+            mark = f"Not staged {today} — now Utah law: {p['verification'].get('reasoning', '')}"
+        elif p["_key"] in done:
+            mark = f"Done {today} — in {STAGING_TAB}"
+        else:
+            mark = "Row build failed — set back to Y to retry"
+        marks.append({"range": p["_cell"], "values": [[mark[:500]]]})
+    svc.values().batchUpdate(spreadsheetId=VAULT_ID, body={
+        "valueInputOption": "RAW", "data": marks}).execute()
+    funnel = (f"{len(picks)} picked → {len(dead)} now law → "
+              f"{len(rows)} added to {STAGING_TAB}")
+    write_log(svc, "Full treatment (annual picks)", settings, funnel, dead)
+    log(f"done: {funnel}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
@@ -555,14 +716,14 @@ def main() -> int:
     ap.add_argument("--max-ideas", type=int, help="cap on staged rows")
     args = ap.parse_args()
 
-    log("code build: annual-scan (2026-11)")
+    log("code build: staging-workflow (2026-11)")
 
     cfg = yaml.safe_load((HERE / "sources.yaml").read_text())
     svc = None if args.dry_run else sheets_service()
 
     settings = read_scan_settings(svc) if svc else dict(DEFAULT_SETTINGS)
     # one-off overrides: env vars come from the GitHub "Run workflow" input
-    # boxes; CLI flags (local runs) win over everything
+    # boxes and the annual/full-treatment workflows; CLI flags win over all
     for key, env_var, cli_val, parse in [
         ("objectives", "SCAN_OBJECTIVES", args.objectives, lambda v: parse_nums(v, 7)),
         ("tiers", "SCAN_TIERS", args.tiers, lambda v: parse_nums(v, 3)),
@@ -571,7 +732,6 @@ def main() -> int:
         for raw in (os.environ.get(env_var, ""), cli_val or ""):
             if raw.strip():
                 settings[key] = parse(raw)
-    # lookback-scan.yml sets these; the monthly workflow leaves them unset
     if m := re.search(r"\d+", os.environ.get("SCAN_DAYS", "")):
         settings["days"] = int(m.group())
     if raw := os.environ.get("SCAN_MAX", "").strip():
@@ -581,15 +741,20 @@ def main() -> int:
         settings["label"] = raw
     if os.environ.get("SCAN_SHOW_KILLED", "").strip().lower() == "false":
         settings["show_killed"] = False
-    if os.environ.get("SCAN_MODE", "").strip().lower() == "annual":
-        settings["mode"] = "annual"
-    if os.environ.get("SCAN_SHORT_ROWS", "").strip().lower() == "true":
-        settings["short_rows"] = True
+    mode = os.environ.get("SCAN_MODE", "").strip().lower()
+    if mode in ("annual", "full_treatment"):
+        settings["mode"] = mode
     if args.days:
         settings["days"] = args.days
     if args.max_ideas:
         settings["max_ideas"] = args.max_ideas
     log(f"settings: {settings_summary(settings)}")
+
+    if settings["mode"] == "full_treatment":
+        if not svc:
+            log("full treatment reads the Vault, so it can't run as a dry run")
+            return 0
+        return full_treatment(svc, cfg, settings)
 
     candidates = gather_candidates(cfg, settings)
     if not candidates:
@@ -600,23 +765,28 @@ def main() -> int:
     n_raw = len(candidates)
     candidates = dedupe(candidates, existing)
     live, dead = verify(candidates)
-    rows = rank(short_rows(live, cfg) if settings["short_rows"] else build_rows(live, cfg))
+    annual = settings["mode"] == "annual"
+    if annual:
+        rows = rank(short_rows(live, cfg))
+    else:
+        rows = finish_rows(rank(build_rows(live, read_utah_stats(svc), vault_options(svc))))
     if settings["max_ideas"] is not None:
         rows = rows[: settings["max_ideas"]]
 
+    where = "listed for picking" if annual else f"added to {STAGING_TAB}"
     funnel = (f"{n_raw} candidates → {len(candidates)} after dedupe → "
-              f"{len(live)} verified live, {len(dead)} killed → {len(rows)} staged")
+              f"{len(live)} verified live, {len(dead)} already law → {len(rows)} {where}")
 
     if args.dry_run:
         print(json.dumps(rows, indent=2))
         log(f"DRY RUN: {funnel}")
         return 0
 
-    if not rows and not dead:
-        log("nothing survived and nothing was killed — no tab written")
-        return 0
-    headers = read_policy_headers(svc)
-    write_results_tab(svc, to_sheet_rows(rows, headers), settings, dead, funnel, headers)
+    if annual:
+        write_annual_tab(svc, rows)
+    else:
+        stage_rows(svc, rows)
+    write_log(svc, scan_label(settings), settings, funnel, dead)
     log(f"done: {funnel}")
     return 0
 

@@ -70,24 +70,46 @@ Search results:
 {results}
 """
 
-BUILD_ROW = """Build a Policy Vault staging row for this verified policy idea.
-Follow TPP's verification protocol strictly:
-- Every cost and population figure must show its math and cite its source inline.
-- Use the Utah statistics provided below FIRST before estimating from general knowledge.
-- Anything you cannot ground in a source gets "FLAG: verify <what> with <agency>" —
-  never invent a number.
-- Utah Code references must be le.utah.gov URLs or explicitly marked for verification.
-- Legal interpretation claims must be flagged "[HYPOTHESIS — requires counsel review]".
+BUILD_ROW = """Build a Policy Vault row for this verified policy idea.
+Follow TPP's verification protocol strictly. Never invent a number, bill,
+code section or past attempt.
+
+- Utah Code: only a le.utah.gov URL that appears in the research below.
+  Otherwise "FLAG: verify Utah Code on le.utah.gov".
+- Past attempts: only Utah bills found in the le.utah.gov or web research
+  below — bill number, year, outcome, URL. If none: "None found in
+  le.utah.gov search — FLAG: verify".
+- Estimated cost: give a range, show the math, cite each source inline
+  (fiscal notes or other states' comparable programs from the cost research
+  below), and end with "Conf: LOW", "Conf: MED" or "Conf: HIGH".
+- People affected: use the Utah statistics below FIRST, citing the stat's
+  source; show the math; end with "Conf: LOW/MED/HIGH". Population and
+  demographic figures may come only from those statistics or from a primary
+  source in the research (Census/ACS, ibis.utah.gov, DOPL, schools.utah.gov
+  (USBE), hwic.utah.gov). Otherwise "FLAG: verify <what> with <agency>".
+- Type of cost / cost notes: say whether a cost exists, one-time vs ongoing,
+  mechanism (appropriation / tax expenditure / mandate / regulation),
+  funding source, who ultimately bears it, and cost shift vs net new.
+- Target / Barrier, Type of change, Type of cost: use a value from the
+  Vault's lists below when one fits; leave target_barrier blank if none does.
+- Legal interpretation claims: mark "[HYPOTHESIS — requires counsel review]".
 
 Idea: {idea}
 Objective: {objective}
 Source: {source_url}
-Verification notes: {verification}
+Utah-law check: {verification}
 
-Utah statistics reference:
+Vault values already in use:
+{options}
+
+Law and bill research:
+{law_research}
+
+Cost research:
+{cost_research}
+
+Utah statistics (metric | value | year | source):
 {stats}
-
-Target/Barrier options for this objective: {barriers}
 
 Return JSON with keys (matching vault columns):
   objective, target_barrier, idea_summary, idea_source, utah_code, past_attempts,

@@ -1,0 +1,32 @@
+name: Full Treatment (annual picks)
+
+# Manual only. Finds every idea marked Y in the "Full treatment? (Y)" column of
+# any "Annual Scan —" tab, re-checks it against Utah law, builds a full Vault
+# row (cost and impact estimates, past attempts, Utah Code, type of change and
+# cost), adds it to the Staging tab, and marks the pick "Done".
+on:
+  workflow_dispatch: {}
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scan
+        working-directory: scanner
+        env:
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          VAULT_SPREADSHEET_ID: ${{ vars.VAULT_SPREADSHEET_ID }}
+          SCAN_MODE: "full_treatment"
+        run: python scan.py
