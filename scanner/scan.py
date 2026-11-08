@@ -705,6 +705,31 @@ def full_treatment(svc, cfg, settings) -> int:
     return 0
 
 
+def check_setup(dry_run: bool) -> list[str]:
+    """Plain-English check of the GitHub secrets/variables before any spend."""
+    out = []
+    for name in ("TAVILY_API_KEY", "ANTHROPIC_API_KEY"):
+        if not os.environ.get(name, "").strip():
+            out.append(f"secret {name} is missing or empty (check the exact spelling)")
+    if dry_run:
+        return out
+    if not VAULT_ID:
+        out.append("variable VAULT_SPREADSHEET_ID is missing (Variables tab, not Secrets)")
+    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    if not raw:
+        out.append("secret GOOGLE_SERVICE_ACCOUNT_JSON is missing or empty")
+    else:
+        try:
+            info = json.loads(raw)
+            if "client_email" not in info or "private_key" not in info:
+                out.append("GOOGLE_SERVICE_ACCOUNT_JSON doesn't look like a service-account key file")
+        except json.JSONDecodeError as e:
+            out.append("GOOGLE_SERVICE_ACCOUNT_JSON isn't a complete copy of the .json file "
+                       f"(broken at line {e.lineno}). Re-paste the whole file, from the first "
+                       "{ to the last }.")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
@@ -717,6 +742,12 @@ def main() -> int:
     args = ap.parse_args()
 
     log("code build: staging-workflow (2026-11)")
+    if problems := check_setup(args.dry_run):
+        for msg in problems:
+            log(f"SETUP PROBLEM: {msg}")
+        log("Fix these under Settings → Secrets and variables → Actions, then run again. "
+            "Nothing was searched, so no credits were used.")
+        return 1
 
     cfg = yaml.safe_load((HERE / "sources.yaml").read_text())
     svc = None if args.dry_run else sheets_service()
