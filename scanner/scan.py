@@ -392,7 +392,9 @@ def search_plan(cfg, settings) -> list[tuple[str, list[str]]]:
                 for src in srcs if src.get("annual", True) for q in qs]
     groups = {}  # one search per tier, so each tier gets its own 20 results
     for src in srcs:
-        groups.setdefault(src["tier"], []).append(src["domain"])
+        doms = groups.setdefault(src["tier"], [])
+        if src["domain"] not in doms:  # a domain can be listed twice with hints
+            doms.append(src["domain"])
     queries = [q["q"] for q in cfg["queries"]
                if objs is None or not q.get("objectives")
                or set(q["objectives"]) & set(objs)]

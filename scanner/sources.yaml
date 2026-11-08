@@ -99,6 +99,15 @@ sources:
   - {domain: utahfoundation.org,      label: "Utah Foundation",            tier: 1}
   - {domain: usu.edu,                 label: "UWLP (USU)",                 tier: 1, hint: "Utah Women and Leadership"}
   - {domain: healthpolicyproject.org, label: "Utah Health Policy Project", tier: 1}
+  # Tier 1 — added Nov 2026 to match the bi-annual research scan's source list
+  - {domain: siac.utah.gov,           label: "SIAC (IPV / LAP analyses)",  tier: 1}
+  - {domain: dhhs.utah.gov,           label: "Utah Health Improvement Plan", tier: 1, hint: "Utah Health Improvement Plan"}
+  - {domain: intermountainhealth.org, label: "Intermountain Health CHNA",  tier: 1, hint: "community health needs assessment"}
+  - {domain: uofuhealth.utah.edu,     label: "University of Utah Health CHNA", tier: 1, hint: "community health needs assessment"}
+  - {domain: saltlakecounty.gov,      label: "SL County Housing CNA",      tier: 1, hint: "housing community needs assessment"}
+  - {domain: saltlakecounty.gov,      label: "Salt Lake County Health Dept", tier: 1, hint: "health department"}
+  - {domain: health.utahcounty.gov,   label: "Utah County Health Dept",    tier: 1}
+  - {domain: site.utah.gov,           label: "Weber-Morgan Health Dept",   tier: 1, hint: "Weber-Morgan Health Department"}
   # Tier 2 — Utah advocacy & civil society
   - {domain: utahchildren.org,        label: "Voices for Utah Children",   tier: 2}
   - {domain: sutherlandinstitute.org, label: "Sutherland Institute",       tier: 2}
@@ -108,6 +117,13 @@ sources:
   - {domain: disabilitylawcenter.org, label: "Disability Law Center",      tier: 2}
   - {domain: envisionutah.org,        label: "Envision Utah",              tier: 2}
   - {domain: uepc.utah.edu,           label: "Utah Education Policy Ctr",  tier: 2}
+  # Tier 2 — added Nov 2026 to match the bi-annual research scan's source list
+  - {domain: namiut.org,              label: "NAMI Utah",                  tier: 2}
+  - {domain: slchamber.com,           label: "Utah Community Builders",    tier: 2, hint: "Utah Community Builders"}
+  - {domain: slchamber.com,           label: "Salt Lake Chamber",          tier: 2, hint: "legislative priorities"}
+  - {domain: myuea.org,               label: "UEA",                        tier: 2}
+  - {domain: uacnet.org,              label: "Utah Association of Counties", tier: 2}
+  - {domain: ulct.org,                label: "ULCT",                       tier: 2}
   # Tier 3 — national think tanks & model-policy sources
   - {domain: brennancenter.org,       label: "Brennan Center",             tier: 3}
   - {domain: epi.org,                 label: "Economic Policy Institute",  tier: 3}
