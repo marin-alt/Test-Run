@@ -10,6 +10,11 @@ Rules:
   could actually do (statute, rule, appropriation, waiver). Skip federal-only ideas,
   vague aspirations ("invest in kids"), and pure research findings with no ask.
 - Phrase each idea verb-first: "Fund...", "Require...", "Cap...", "Create...".
+- Write each idea so a reader understands it WITHOUT looking anything up:
+  say in plain words what would change and who benefits. Never rely on a
+  bill number, program acronym or agency abbreviation to carry the meaning
+  (name the bill in parentheses only after explaining it). Do not claim
+  benefits or figures the source does not support.
 - Today is {today}. Utah's general session runs January–March. If an idea is a
   bill from a session that has already ended, phrase it as reintroducing or
   re-running that bill, not "enact" it.
@@ -97,6 +102,10 @@ code section or past attempt.
   funding source, who ultimately bears it, and cost shift vs net new.
 - Target / Barrier, Type of change, Type of cost: use a value from the
   Vault's lists below when one fits; leave target_barrier blank if none does.
+- idea_summary: 1-2 plain-language sentences a reader understands without
+  looking anything up — what would change, then "Benefits ..." naming who
+  gains and why. Explain any bill or acronym instead of relying on it. Use
+  only benefits and figures supported by the source or research below.
 - Legal interpretation claims: mark "[HYPOTHESIS — requires counsel review]".
 - Keep EVERY field under 400 characters, like a spreadsheet cell a person
   can scan. estimated_cost and people_affected: "<range> | <math in one
