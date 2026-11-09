@@ -2,6 +2,25 @@
 
 Automated scan for new Utah policy ideas for The Policy Project's Policy Vault.
 
+## What this is for
+
+TPP runs two kinds of scans, and both have **one purpose: to find and track new policy ideas** for the Policy Vault. Neither is meant to collect research findings or statistics for their own sake.
+
+| Scan | How it runs | What it looks for | Where ideas go |
+|---|---|---|---|
+| **Monthly scan** (this repo) | Automatically, 1st of each month | Recent publications from the sources in `sources.yaml` | Staging tab |
+| **Annual scan** (this repo) | By hand, once a year | Past-year publications, every source × every sub-goal | Annual Scan tab → picks → Staging |
+| **Bi-annual research scan** (not in this repo) | By hand with Claude, every ~6 months | Utah research reports and needs assessments, read in depth | Word doc; its Vault-ready rows → Staging |
+
+A policy idea counts only if it is **something the Utah Legislature, a state agency or Utah Medicaid could do** and it is **not already Utah law or already in the Vault**. Ideas come from two places:
+
+1. **Recommendations a report makes outright** — both scans.
+2. **Ideas drawn from gaps and needs a report documents** — the bi-annual research scan only, because each one needs a model (another state's law or a research source) and that takes reading beyond the report. Gap ideas with no model are labeled "TPP concept" and treated as hypotheses. The automated scans skip findings that come with no policy ask.
+
+Findings and statistics show up only as evidence for an idea: in a row's cost and impact estimates (from the Utah Statistics tab) or in the bi-annual scan's evidence sections.
+
+## How the scanner works
+
 Every run:
 
 1. **Searches** ~30 sources (Utah agencies, research institutes, advocacy orgs, national think tanks, Utah news) via the Tavily API for policy-relevant publications
